@@ -1,0 +1,2393 @@
+{
+  "JumpPoint_Stanton_Magnus": {
+    "arrivalRadius": 35000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Magnus",
+    "name": "JumpPoint_Stanton_Magnus",
+    "obstructionRadius": 7500.0,
+    "parent": "stantonstar",
+    "position": {
+      "x": -62284282868.18451,
+      "y": 23467602586.872375,
+      "z": 20198396608.0
+    },
+    "rotation": {
+      "w": 0.30793616,
+      "x": -0.14839508,
+      "y": -0.027259013,
+      "z": 0.93936741
+    },
+    "size": 5000.0,
+    "system_entity_name": "ooc_jumppoint_stanton_magnus",
+    "type": "JumpPoint"
+  },
+  "JumpPoint_Stanton_Pyro": {
+    "arrivalRadius": 35000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Pyro",
+    "name": "JumpPoint_Stanton_Pyro",
+    "obstructionRadius": 7500.0,
+    "parent": "stantonstar",
+    "position": {
+      "x": 3310491639.802189,
+      "y": -27979408221.456882,
+      "z": -2676285679.0
+    },
+    "rotation": {
+      "w": -0.12613995,
+      "x": 0.40944785,
+      "y": -0.58401775,
+      "z": 0.68946677
+    },
+    "size": 5000.0,
+    "system_entity_name": "ooc_jumppoint_stanton_pyro",
+    "type": "JumpPoint"
+  },
+  "JumpPoint_Stanton_Terra": {
+    "arrivalRadius": 35000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Terra",
+    "name": "JumpPoint_Stanton_Terra",
+    "obstructionRadius": 7500.0,
+    "parent": "stantonstar",
+    "position": {
+      "x": 51118221616.90332,
+      "y": -5269981303.113817,
+      "z": -4339551619.0
+    },
+    "rotation": {
+      "w": 0.84275234,
+      "x": -0.15849306,
+      "y": -0.091506034,
+      "z": -0.5062362
+    },
+    "size": 5000.0,
+    "system_entity_name": "ooc_jumppoint_stanton_terra",
+    "type": "JumpPoint"
+  },
+  "lagrange_stanton1_l1": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L1",
+    "name": "stanton1_l1",
+    "obstructionRadius": 0.0,
+    "parent": "stanton1",
+    "position": {
+      "x": 11565411328.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton1_L1",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton1_l2": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L2",
+    "name": "stanton1_l2",
+    "obstructionRadius": 0.0,
+    "parent": "stanton1",
+    "position": {
+      "x": 14135502848.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton1_L2",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton1_l3": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L3",
+    "name": "stanton1_l3",
+    "obstructionRadius": 0.0,
+    "parent": "stanton1",
+    "position": {
+      "x": -12850457600.0,
+      "y": -1123.422729,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton1_L3",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton1_l4": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L4",
+    "name": "stanton1_l4",
+    "obstructionRadius": 0.0,
+    "parent": "stanton1",
+    "position": {
+      "x": 6425228288.0,
+      "y": 11128823808.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton1_L4",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton1_l5": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L5",
+    "name": "stanton1_l5",
+    "obstructionRadius": 0.0,
+    "parent": "stanton1",
+    "position": {
+      "x": 6425227776.0,
+      "y": -11128823808.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton1_L5",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton2_l1": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L1",
+    "name": "stanton2_l1",
+    "obstructionRadius": 0.0,
+    "parent": "stanton2",
+    "position": {
+      "x": -17065957375.999998,
+      "y": -2398463999.999994,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton2_L1",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton2_l2": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L2",
+    "name": "stanton2_l2",
+    "obstructionRadius": 0.0,
+    "parent": "stanton2",
+    "position": {
+      "x": -20858376485.43327,
+      "y": -2931474402.05844,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton2_L2",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton2_l3": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L3",
+    "name": "stanton2_l3",
+    "obstructionRadius": 0.0,
+    "parent": "stanton2",
+    "position": {
+      "x": 18962164826.094032,
+      "y": 2664965040.501728,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton2_L3",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton2_l4": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L4",
+    "name": "stanton2_l4",
+    "obstructionRadius": 0.0,
+    "parent": "stanton2",
+    "position": {
+      "x": -7173168639.999996,
+      "y": -17754204160.000004,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton2_L4",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton2_l5": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L5",
+    "name": "stanton2_l5",
+    "obstructionRadius": 0.0,
+    "parent": "stanton2",
+    "position": {
+      "x": -11789008988.260246,
+      "y": 15089246106.763807,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton2_L5",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton3_l1": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L1",
+    "name": "stanton3_l1",
+    "obstructionRadius": 0.0,
+    "parent": "stanton3",
+    "position": {
+      "x": 16729134637.384644,
+      "y": -19937006924.891357,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton3_L1",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton3_l2": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L2",
+    "name": "stanton3_l2",
+    "obstructionRadius": 0.0,
+    "parent": "stanton3",
+    "position": {
+      "x": 20446718503.390137,
+      "y": -24367450990.706055,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton3_L2",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton3_l3": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L3",
+    "name": "stanton3_l3",
+    "obstructionRadius": 0.0,
+    "parent": "stanton3",
+    "position": {
+      "x": -25043446883.50293,
+      "y": 14458841787.628052,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton3_L3",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton3_l4": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L4",
+    "name": "stanton3_l4",
+    "obstructionRadius": 0.0,
+    "parent": "stanton3",
+    "position": {
+      "x": 28478354915.65576,
+      "y": 5021502482.911743,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton3_L4",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton3_l5": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L5",
+    "name": "stanton3_l5",
+    "obstructionRadius": 0.0,
+    "parent": "stanton3",
+    "position": {
+      "x": -9890422516.169678,
+      "y": -27173732225.140015,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton3_L5",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton4_l1": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L1",
+    "name": "stanton4_l1",
+    "obstructionRadius": 0.0,
+    "parent": "stanton4",
+    "position": {
+      "x": 20215824238.186035,
+      "y": 33467065007.614746,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton4_L1",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton4_l2": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L2",
+    "name": "stanton4_l2",
+    "obstructionRadius": 0.0,
+    "parent": "stanton4",
+    "position": {
+      "x": 24708827153.475586,
+      "y": 40905202459.222755,
+      "z": -0.050088
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton4_L2",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton4_l3": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L3",
+    "name": "stanton4_l3",
+    "obstructionRadius": 0.0,
+    "parent": "stanton4",
+    "position": {
+      "x": -22457170265.786125,
+      "y": -37187612395.6401,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton4_L3",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton4_l4": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L4",
+    "name": "stanton4_l4",
+    "obstructionRadius": 0.0,
+    "parent": "stanton4",
+    "position": {
+      "x": -20971933230.165882,
+      "y": 38045504032.01936,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton4_L4",
+    "type": "LagrangePoint"
+  },
+  "lagrange_stanton4_l5": {
+    "arrivalRadius": 1000.0,
+    "atmoHeight": 0.0,
+    "display_name": "L5",
+    "name": "stanton4_l5",
+    "obstructionRadius": 0.0,
+    "parent": "stanton4",
+    "position": {
+      "x": 43435204288.21857,
+      "y": -851406955.90843,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "OOC_Stanton4_L5",
+    "type": "LagrangePoint"
+  },
+  "landingzone_stanton1_stanton1_lorville": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Lorville",
+    "name": "landingzone_stanton1_stanton1_lorville",
+    "obstructionRadius": 0.0,
+    "parent": "stanton1",
+    "position": {
+      "x": 12850457093.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1.0,
+    "system_entity_name": "OOC_Stanton1_Lorville",
+    "type": "LandingZone"
+  },
+  "landingzone_stanton2_stanton2_orison": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Orison",
+    "name": "landingzone_stanton2_stanton2_orison",
+    "obstructionRadius": 0.0,
+    "parent": "stanton2",
+    "position": {
+      "x": -18962176000.0,
+      "y": -2664959999.999996,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1.0,
+    "system_entity_name": "OOC_Stanton2_Orison",
+    "type": "LandingZone"
+  },
+  "landingzone_stanton3_stanton3_area18": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Area 18",
+    "name": "landingzone_stanton3_stanton3_area18",
+    "obstructionRadius": 0.0,
+    "parent": "stanton3",
+    "position": {
+      "x": 18587664739.85602,
+      "y": -22151916920.3126,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1.0,
+    "system_entity_name": "OOC_Stanton3_Area18",
+    "type": "LandingZone"
+  },
+  "landingzone_stanton4_stanton4_newbabbage": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "New Babbage",
+    "name": "landingzone_stanton4_stanton4_newbabbage",
+    "obstructionRadius": 0.0,
+    "parent": "stanton4",
+    "position": {
+      "x": 22462085252.484795,
+      "y": 37185744964.8301,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 0.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 1.0
+    },
+    "size": 1.0,
+    "system_entity_name": "OOC_Stanton4_Newbabbage",
+    "type": "LandingZone"
+  },
+  "stanton1": {
+    "arrivalRadius": 1050000.0,
+    "atmoHeight": 80000.0,
+    "display_name": "Hurston",
+    "name": "stanton1",
+    "obstructionRadius": 1008900.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": 12850457093.0,
+        "y": 296000.0,
+        "z": 0.0
+      },
+      "om2": {
+        "x": 12850457093.0,
+        "y": -296000.0,
+        "z": 0.0
+      },
+      "om3": {
+        "x": 12850753093.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "om4": {
+        "x": 12850457093.0,
+        "y": 0.0,
+        "z": 296000.0
+      },
+      "om5": {
+        "x": 12850161093.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "om6": {
+        "x": 12850457093.0,
+        "y": 0.0,
+        "z": -296000.0
+      }
+    },
+    "parent": "stantonstar",
+    "position": {
+      "x": 12850457093.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000000.0,
+    "system_entity_name": "ooc_stanton_1_hurston",
+    "type": "Planet"
+  },
+  "stanton1a": {
+    "arrivalRadius": 511725.0,
+    "atmoHeight": 13000.0,
+    "display_name": "Aberdeen",
+    "name": "stanton1a",
+    "obstructionRadius": 348500.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": 42216215.86082077,
+        "y": -31428028.840109,
+        "z": 0.0
+      },
+      "om2": {
+        "x": 42216215.86082077,
+        "y": -31524228.840109,
+        "z": 0.0
+      },
+      "om3": {
+        "x": 42264315.86082077,
+        "y": -31476128.840109,
+        "z": 0.0
+      },
+      "om4": {
+        "x": 42216215.86082077,
+        "y": -31476128.840109,
+        "z": 48100.0
+      },
+      "om5": {
+        "x": 42168115.86082077,
+        "y": -31476128.840109,
+        "z": 0.0
+      },
+      "om6": {
+        "x": 42216215.86082077,
+        "y": -31476128.840109,
+        "z": -48100.0
+      }
+    },
+    "parent": "stanton1",
+    "position": {
+      "x": 42216215.86082077,
+      "y": -31476128.840109,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 344500.0,
+    "system_entity_name": "ooc_stanton_1a_ariel",
+    "type": "Moon"
+  },
+  "stanton1b": {
+    "arrivalRadius": 437700.0,
+    "atmoHeight": 20000.0,
+    "display_name": "Arial",
+    "name": "stanton1b",
+    "obstructionRadius": 278000.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": 55300543.43100166,
+        "y": 41029550.560376,
+        "z": 0.0
+      },
+      "om2": {
+        "x": 55300543.43100166,
+        "y": 40881550.560376,
+        "z": 0.0
+      },
+      "om3": {
+        "x": 55374543.43100166,
+        "y": 40955550.560376,
+        "z": 0.0
+      },
+      "om4": {
+        "x": 55300543.43100166,
+        "y": 40955550.560376,
+        "z": 74000.0
+      },
+      "om5": {
+        "x": 55226543.43100166,
+        "y": 40955550.560376,
+        "z": 0.0
+      },
+      "om6": {
+        "x": 55300543.43100166,
+        "y": 40955550.560376,
+        "z": -74000.0
+      }
+    },
+    "parent": "stanton1",
+    "position": {
+      "x": 55300543.43100166,
+      "y": 40955550.560376,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 274000.0,
+    "system_entity_name": "ooc_stanton_1b_aberdeen",
+    "type": "Moon"
+  },
+  "stanton1c": {
+    "arrivalRadius": 507874.6875,
+    "atmoHeight": 7000.0,
+    "display_name": "Ita",
+    "name": "stanton1c",
+    "obstructionRadius": 344830.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": -57770733.58171463,
+        "y": -74438680.982047,
+        "z": 0.0
+      },
+      "om2": {
+        "x": -57770733.58171463,
+        "y": -74490480.982047,
+        "z": 0.0
+      },
+      "om3": {
+        "x": -57744833.58171463,
+        "y": -74464580.982047,
+        "z": 0.0
+      },
+      "om4": {
+        "x": -57770733.58171463,
+        "y": -74464580.982047,
+        "z": 25900.0
+      },
+      "om5": {
+        "x": -57796633.58171463,
+        "y": -74464580.982047,
+        "z": 0.0
+      },
+      "om6": {
+        "x": -57770733.58171463,
+        "y": -74464580.982047,
+        "z": -25900.0
+      }
+    },
+    "parent": "stanton1",
+    "position": {
+      "x": -57770733.58171463,
+      "y": -74464580.982047,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 340833.0,
+    "system_entity_name": "ooc_stanton_1c_magda",
+    "type": "Moon"
+  },
+  "stanton1d": {
+    "arrivalRadius": 491250.0,
+    "atmoHeight": 4500.0,
+    "display_name": "Magda",
+    "name": "stanton1d",
+    "obstructionRadius": 329000.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": -20262377.187265396,
+        "y": 114930258.600053,
+        "z": 0.0
+      },
+      "om2": {
+        "x": -20262377.187265396,
+        "y": 114896958.600053,
+        "z": 0.0
+      },
+      "om3": {
+        "x": -20245727.187265396,
+        "y": 114913608.600053,
+        "z": 0.0
+      },
+      "om4": {
+        "x": -20262377.187265396,
+        "y": 114913608.600053,
+        "z": 16650.0
+      },
+      "om5": {
+        "x": -20279027.187265396,
+        "y": 114913608.600053,
+        "z": 0.0
+      },
+      "om6": {
+        "x": -20262377.187265396,
+        "y": 114913608.600053,
+        "z": -16650.0
+      }
+    },
+    "parent": "stanton1",
+    "position": {
+      "x": -20262377.187265396,
+      "y": 114913608.600053,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 325000.0,
+    "system_entity_name": "ooc_stanton_1d_ita",
+    "type": "Moon"
+  },
+  "stanton2": {
+    "arrivalRadius": 7972500.0,
+    "atmoHeight": 600000.0,
+    "display_name": "Crusader",
+    "name": "stanton2",
+    "obstructionRadius": 7540000.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": -18962176000.0,
+        "y": -2662739999.999996,
+        "z": 0.0
+      },
+      "om2": {
+        "x": -18962176000.0,
+        "y": -2667179999.999996,
+        "z": 0.0
+      },
+      "om3": {
+        "x": -18959956000.0,
+        "y": -2664959999.999996,
+        "z": 0.0
+      },
+      "om4": {
+        "x": -18962176000.0,
+        "y": -2664959999.999996,
+        "z": 2220000.0
+      },
+      "om5": {
+        "x": -18964396000.0,
+        "y": -2664959999.999996,
+        "z": 0.0
+      },
+      "om6": {
+        "x": -18962176000.0,
+        "y": -2664959999.999996,
+        "z": -2220000.0
+      }
+    },
+    "parent": "stantonstar",
+    "position": {
+      "x": -18962176000.0,
+      "y": -2664959999.999996,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 7450000.0,
+    "system_entity_name": "ooc_stanton_2_crusader",
+    "type": "Planet"
+  },
+  "stanton2a": {
+    "arrivalRadius": 423349.6875,
+    "atmoHeight": 11000.0,
+    "display_name": "Cellin",
+    "name": "stanton2a",
+    "obstructionRadius": 264000.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": -25435119.233371735,
+        "y": -44008960.70514393,
+        "z": 0.0
+      },
+      "om2": {
+        "x": -25435119.233371735,
+        "y": -44090360.70514393,
+        "z": 0.0
+      },
+      "om3": {
+        "x": -25394419.233371735,
+        "y": -44049660.70514393,
+        "z": 0.0
+      },
+      "om4": {
+        "x": -25435119.233371735,
+        "y": -44049660.70514393,
+        "z": 40700.0
+      },
+      "om5": {
+        "x": -25475819.233371735,
+        "y": -44049660.70514393,
+        "z": 0.0
+      },
+      "om6": {
+        "x": -25435119.233371735,
+        "y": -44049660.70514393,
+        "z": -40700.0
+      }
+    },
+    "parent": "stanton2",
+    "position": {
+      "x": -25435119.233371735,
+      "y": -44049660.70514393,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 260333.0,
+    "system_entity_name": "ooc_stanton_2a_cellin",
+    "type": "Moon"
+  },
+  "stanton2b": {
+    "arrivalRadius": 459750.0,
+    "atmoHeight": 5000.0,
+    "display_name": "Daymar",
+    "name": "stanton2b",
+    "obstructionRadius": 299000.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": 31636460.465171814,
+        "y": 54819734.50144005,
+        "z": 0.0
+      },
+      "om2": {
+        "x": 31636460.465171814,
+        "y": 54782734.50144005,
+        "z": 0.0
+      },
+      "om3": {
+        "x": 31654960.465171814,
+        "y": 54801234.50144005,
+        "z": 0.0
+      },
+      "om4": {
+        "x": 31636460.465171814,
+        "y": 54801234.50144005,
+        "z": 18500.0
+      },
+      "om5": {
+        "x": 31617960.465171814,
+        "y": 54801234.50144005,
+        "z": 0.0
+      },
+      "om6": {
+        "x": 31636460.465171814,
+        "y": 54801234.50144005,
+        "z": -18500.0
+      }
+    },
+    "parent": "stanton2",
+    "position": {
+      "x": 31636460.465171814,
+      "y": 54801234.50144005,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 295167.0,
+    "system_entity_name": "ooc_stanton_2b_daymar",
+    "type": "Moon"
+  },
+  "stanton2c": {
+    "arrivalRadius": 478650.0,
+    "atmoHeight": 6000.0,
+    "display_name": "Yela",
+    "name": "stanton2c",
+    "obstructionRadius": 317000.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": -60740798.92737579,
+        "y": 50986048.00152397,
+        "z": 0.0
+      },
+      "om2": {
+        "x": -60740798.92737579,
+        "y": 50941648.00152397,
+        "z": 0.0
+      },
+      "om3": {
+        "x": -60718598.92737579,
+        "y": 50963848.00152397,
+        "z": 0.0
+      },
+      "om4": {
+        "x": -60740798.92737579,
+        "y": 50963848.00152397,
+        "z": 22200.0
+      },
+      "om5": {
+        "x": -60762998.92737579,
+        "y": 50963848.00152397,
+        "z": 0.0
+      },
+      "om6": {
+        "x": -60740798.92737579,
+        "y": 50963848.00152397,
+        "z": -22200.0
+      }
+    },
+    "parent": "stanton2",
+    "position": {
+      "x": -60740798.92737579,
+      "y": 50963848.00152397,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 313000.0,
+    "system_entity_name": "ooc_stanton_2c_yela",
+    "type": "Moon"
+  },
+  "stanton3": {
+    "arrivalRadius": 880000.0,
+    "atmoHeight": 80000.0,
+    "display_name": "ArcCorp",
+    "name": "stanton3",
+    "obstructionRadius": 807130.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": 18587664739.85602,
+        "y": -22151620920.3126,
+        "z": 0.0
+      },
+      "om2": {
+        "x": 18587664739.85602,
+        "y": -22152212920.3126,
+        "z": 0.0
+      },
+      "om3": {
+        "x": 18587960739.85602,
+        "y": -22151916920.3126,
+        "z": 0.0
+      },
+      "om4": {
+        "x": 18587664739.85602,
+        "y": -22151916920.3126,
+        "z": 296000.0
+      },
+      "om5": {
+        "x": 18587368739.85602,
+        "y": -22151916920.3126,
+        "z": 0.0
+      },
+      "om6": {
+        "x": 18587664739.85602,
+        "y": -22151916920.3126,
+        "z": -296000.0
+      }
+    },
+    "parent": "stantonstar",
+    "position": {
+      "x": 18587664739.85602,
+      "y": -22151916920.3126,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 800000.0,
+    "system_entity_name": "ooc_stanton_3_arccorp",
+    "type": "Planet"
+  },
+  "stanton3a": {
+    "arrivalRadius": 384150.0,
+    "atmoHeight": 10000.0,
+    "display_name": "Lyria",
+    "name": "stanton3a",
+    "obstructionRadius": 227000.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": 115942431.69996643,
+        "y": 30303786.448417664,
+        "z": 0.0
+      },
+      "om2": {
+        "x": 115942431.69996643,
+        "y": 30229786.448417664,
+        "z": 0.0
+      },
+      "om3": {
+        "x": 115979431.69996643,
+        "y": 30266786.448417664,
+        "z": 0.0
+      },
+      "om4": {
+        "x": 115942431.69996643,
+        "y": 30266786.448417664,
+        "z": 37000.0
+      },
+      "om5": {
+        "x": 115905431.69996643,
+        "y": 30266786.448417664,
+        "z": 0.0
+      },
+      "om6": {
+        "x": 115942431.69996643,
+        "y": 30266786.448417664,
+        "z": -37000.0
+      }
+    },
+    "parent": "stanton3",
+    "position": {
+      "x": 115942431.69996643,
+      "y": 30266786.448417664,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 223000.0,
+    "system_entity_name": "ooc_stanton_3a_lyria",
+    "type": "Moon"
+  },
+  "stanton3b": {
+    "arrivalRadius": 447307.5,
+    "atmoHeight": 32000.0,
+    "display_name": "Wala",
+    "name": "stanton3b",
+    "obstructionRadius": 287000.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": -208015429.98859787,
+        "y": 151568552.2743225,
+        "z": 0.0
+      },
+      "om2": {
+        "x": -208015429.98859787,
+        "y": 151331752.2743225,
+        "z": 0.0
+      },
+      "om3": {
+        "x": -207897029.98859787,
+        "y": 151450152.2743225,
+        "z": 0.0
+      },
+      "om4": {
+        "x": -208015429.98859787,
+        "y": 151450152.2743225,
+        "z": 118400.0
+      },
+      "om5": {
+        "x": -208133829.98859787,
+        "y": 151450152.2743225,
+        "z": 0.0
+      },
+      "om6": {
+        "x": -208015429.98859787,
+        "y": 151450152.2743225,
+        "z": -118400.0
+      }
+    },
+    "parent": "stanton3",
+    "position": {
+      "x": -208015429.98859787,
+      "y": 151450152.2743225,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 283833.344,
+    "system_entity_name": "ooc_stanton_3b_wala",
+    "type": "Moon"
+  },
+  "stanton4": {
+    "arrivalRadius": 1050000.0,
+    "atmoHeight": 32000.0,
+    "display_name": "microTech",
+    "name": "stanton4",
+    "obstructionRadius": 1010875.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": 22462085252.484795,
+        "y": 37185863364.8301,
+        "z": 0.0
+      },
+      "om2": {
+        "x": 22462085252.484795,
+        "y": 37185626564.8301,
+        "z": 0.0
+      },
+      "om3": {
+        "x": 22462203652.484795,
+        "y": 37185744964.8301,
+        "z": 0.0
+      },
+      "om4": {
+        "x": 22462085252.484795,
+        "y": 37185744964.8301,
+        "z": 118400.0
+      },
+      "om5": {
+        "x": 22461966852.484795,
+        "y": 37185744964.8301,
+        "z": 0.0
+      },
+      "om6": {
+        "x": 22462085252.484795,
+        "y": 37185744964.8301,
+        "z": -118400.0
+      }
+    },
+    "parent": "stantonstar",
+    "position": {
+      "x": 22462085252.484795,
+      "y": 37185744964.8301,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 0.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 1.0
+    },
+    "size": 1000000.0,
+    "system_entity_name": "ooc_stanton_4_microtech",
+    "type": "Planet"
+  },
+  "stanton4a": {
+    "arrivalRadius": 402350.0,
+    "atmoHeight": 10000.0,
+    "display_name": "Calliope",
+    "name": "stanton4a",
+    "obstructionRadius": 244000.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": 63715944.2375679,
+        "y": 16941285.81880951,
+        "z": 0.0
+      },
+      "om2": {
+        "x": 63715944.2375679,
+        "y": 16867285.81880951,
+        "z": 0.0
+      },
+      "om3": {
+        "x": 63752944.2375679,
+        "y": 16904285.81880951,
+        "z": 0.0
+      },
+      "om4": {
+        "x": 63715944.2375679,
+        "y": 16904285.81880951,
+        "z": 37000.0
+      },
+      "om5": {
+        "x": 63678944.2375679,
+        "y": 16904285.81880951,
+        "z": 0.0
+      },
+      "om6": {
+        "x": 63715944.2375679,
+        "y": 16904285.81880951,
+        "z": -37000.0
+      }
+    },
+    "parent": "stanton4",
+    "position": {
+      "x": 63715944.2375679,
+      "y": 16904285.81880951,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 0.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": -1.0
+    },
+    "size": 240333.0,
+    "system_entity_name": "ooc_stanton_4a_calliope",
+    "type": "Moon"
+  },
+  "stanton4b": {
+    "arrivalRadius": 504025.0,
+    "atmoHeight": 12000.0,
+    "display_name": "Clio",
+    "name": "stanton4b",
+    "obstructionRadius": 341170.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": -14642968.025260925,
+        "y": 94769290.45458984,
+        "z": 0.0
+      },
+      "om2": {
+        "x": -14642968.025260925,
+        "y": 94680490.45458984,
+        "z": 0.0
+      },
+      "om3": {
+        "x": -14598568.025260925,
+        "y": 94724890.45458984,
+        "z": 0.0
+      },
+      "om4": {
+        "x": -14642968.025260925,
+        "y": 94724890.45458984,
+        "z": 44400.0
+      },
+      "om5": {
+        "x": -14687368.025260925,
+        "y": 94724890.45458984,
+        "z": 0.0
+      },
+      "om6": {
+        "x": -14642968.025260925,
+        "y": 94724890.45458984,
+        "z": -44400.0
+      }
+    },
+    "parent": "stanton4",
+    "position": {
+      "x": -14642968.025260925,
+      "y": 94724890.45458984,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 0.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": -1.0
+    },
+    "size": 337167.0,
+    "system_entity_name": "ooc_stanton_4b_clio",
+    "type": "Moon"
+  },
+  "stanton4c": {
+    "arrivalRadius": 373475.0,
+    "atmoHeight": 12000.0,
+    "display_name": "Euterpe",
+    "name": "stanton4c",
+    "obstructionRadius": 217000.0,
+    "orbitalMarkers": {
+      "om1": {
+        "x": -26024483.21628189,
+        "y": 104665800.15092468,
+        "z": 0.0
+      },
+      "om2": {
+        "x": -26024483.21628189,
+        "y": 104577000.15092468,
+        "z": 0.0
+      },
+      "om3": {
+        "x": -25980083.21628189,
+        "y": 104621400.15092468,
+        "z": 0.0
+      },
+      "om4": {
+        "x": -26024483.21628189,
+        "y": 104621400.15092468,
+        "z": 44400.0
+      },
+      "om5": {
+        "x": -26068883.21628189,
+        "y": 104621400.15092468,
+        "z": 0.0
+      },
+      "om6": {
+        "x": -26024483.21628189,
+        "y": 104621400.15092468,
+        "z": -44400.0
+      }
+    },
+    "parent": "stanton4",
+    "position": {
+      "x": -26024483.21628189,
+      "y": 104621400.15092468,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 0.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": -1.0
+    },
+    "size": 212833.0,
+    "system_entity_name": "ooc_stanton_4c_euterpe",
+    "type": "Moon"
+  },
+  "stantonstar": {
+    "arrivalRadius": 121800000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Stanton",
+    "name": "stantonstar",
+    "obstructionRadius": 76560000.0,
+    "parent": "root",
+    "position": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 696000000.0,
+    "system_entity_name": "ooc_stanton",
+    "type": "Star"
+  },
+  "station_commarray_stanton1_stanton1_comm001": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Hurston Comm 001",
+    "name": "station_commarray_stanton1_stanton1_comm001",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton1",
+    "position": {
+      "x": 919253.4480285645,
+      "y": -771345.408289,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 0.92387974,
+      "x": 0.0,
+      "y": 0.0,
+      "z": -0.38268292
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton1_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton1a_stanton1_comm002": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Aberdeen Comm 002",
+    "name": "station_commarray_stanton1a_stanton1_comm002",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton1a",
+    "position": {
+      "x": -78760.1894569397,
+      "y": 505627.7214150019,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 0.70710677,
+      "x": 0.0,
+      "y": 0.0,
+      "z": -0.70710677
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton1a_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton1b_stanton1_comm003": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Arial Comm 003",
+    "name": "station_commarray_stanton1b_stanton1_comm003",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton1b",
+    "position": {
+      "x": -435358.51646614075,
+      "y": -45213.62960600108,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton1b_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton1c_stanton1_comm004": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Ita Comm 004",
+    "name": "station_commarray_stanton1c_stanton1_comm004",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton1c",
+    "position": {
+      "x": 295516.46312332153,
+      "y": 413045.62852300704,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 0.70710677,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.70710677
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton1c_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton1d_stanton1_comm005": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Magda Comm 005",
+    "name": "station_commarray_stanton1d_stanton1_comm005",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton1d",
+    "position": {
+      "x": 122153.16267776489,
+      "y": -475820.55062000453,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 0.70710677,
+      "x": 0.0,
+      "y": 0.0,
+      "z": -0.70710677
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton1d_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton2_stanton2_comm001": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Crusader Comm 001",
+    "name": "station_commarray_stanton2_stanton2_comm001",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton2",
+    "position": {
+      "x": -1387916.9197425842,
+      "y": 8802203.765223026,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 0.92387974,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.38268292
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton2_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton2a_stanton2_comm002": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Cellin Comm 002",
+    "name": "station_commarray_stanton2a_stanton2_comm002",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton2a",
+    "position": {
+      "x": 242243.95901107788,
+      "y": 347192.68727111816,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton2a_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton2b_stanton2_comm003": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Daymar Comm 003",
+    "name": "station_commarray_stanton2b_stanton2_comm003",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton2b",
+    "position": {
+      "x": -435617.26372909546,
+      "y": -146995.80734872818,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton2b_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton2c_stanton2_comm004": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Yela Comm 004",
+    "name": "station_commarray_stanton2c_stanton2_comm004",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton2c",
+    "position": {
+      "x": 150335.65859222412,
+      "y": -454428.4516568184,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 0.70710677,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.70710677
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton2c_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton3_stanton3_comm001": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "ArcCorp Comm 001",
+    "name": "station_commarray_stanton3_stanton3_comm001",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton3",
+    "position": {
+      "x": 758384.1300201416,
+      "y": -636359.9915390015,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton3_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton3a_stanton3_comm002": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Lyria Comm 002",
+    "name": "station_commarray_stanton3a_stanton3_comm002",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton3a",
+    "position": {
+      "x": -382727.0188522339,
+      "y": 33033.82862472534,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton3a_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton3b_stanton3_comm003": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Wala Comm 003",
+    "name": "station_commarray_stanton3b_stanton3_comm003",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton3b",
+    "position": {
+      "x": 365821.2156791687,
+      "y": -257408.21955871582,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 0.38268292,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.92387974
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton3b_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton4_stanton4_comm001": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "microTech Comm 001",
+    "name": "station_commarray_stanton4_stanton4_comm001",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton4",
+    "position": {
+      "x": -1395187.0276603699,
+      "y": -1967744.5378112793,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 0.38268292,
+      "x": 0.0,
+      "y": 0.0,
+      "z": -0.92387974
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton4_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton4a_stanton4_comm002": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Calliope Comm 002",
+    "name": "station_commarray_stanton4a_stanton4_comm002",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton4a",
+    "position": {
+      "x": 258505.72105789185,
+      "y": 474193.31398773193,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 0.92387974,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.38268292
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton4a_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton4b_stanton4_comm003": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Clio Comm 003",
+    "name": "station_commarray_stanton4b_stanton4_comm003",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton4b",
+    "position": {
+      "x": -249263.40746688843,
+      "y": 510162.2331390381,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 0.92387974,
+      "x": 0.0,
+      "y": 0.0,
+      "z": -0.38268292
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton4b_commarray",
+    "type": "CommArray"
+  },
+  "station_commarray_stanton4c_stanton4_comm004": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Euterpe Comm 004",
+    "name": "station_commarray_stanton4c_stanton4_comm004",
+    "obstructionRadius": 2000.0,
+    "parent": "stanton4c",
+    "position": {
+      "x": 431784.04860305786,
+      "y": 208033.82286834717,
+      "z": 24000.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1000.0,
+    "system_entity_name": "ooc_stanton4c_commarray",
+    "type": "CommArray"
+  },
+  "station_leo_stanton1.551af60b-7727-4936-acc7-763d25d7a1de_RR_HUR_LEO": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Everus Harbor",
+    "name": "station_leo_stanton1.551af60b-7727-4936-acc7-763d25d7a1de_RR_HUR_LEO",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton1",
+    "position": {
+      "x": 14135502848.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RR_HUR_LEO",
+    "type": "Station"
+  },
+  "station_leo_stanton2_RR_CRU_LEO": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Port Olisar",
+    "name": "station_leo_stanton2_RR_CRU_LEO",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton2",
+    "position": {
+      "x": -7173168639.999996,
+      "y": -17754204160.000004,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RR_CRU_LEO",
+    "type": "Station"
+  },
+  "station_leo_stanton3_RR_ARC_LEO": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Baijini Point",
+    "name": "station_leo_stanton3_RR_ARC_LEO",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton3",
+    "position": {
+      "x": 28478354915.65576,
+      "y": 5021502482.911743,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RR_ARC_LEO",
+    "type": "Station"
+  },
+  "station_leo_stanton4_RR_MIC_LEO": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Port Tressler",
+    "name": "station_leo_stanton4_RR_MIC_LEO",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton4",
+    "position": {
+      "x": 24708827153.475586,
+      "y": 40905202459.222755,
+      "z": -0.050088
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RR_MIC_LEO",
+    "type": "Station"
+  },
+  "station_motel_stanton2c_GrimHEX": {
+    "arrivalRadius": 18000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Grim HEX",
+    "name": "station_motel_stanton2c_GrimHEX",
+    "obstructionRadius": 4000.0,
+    "parent": "stanton2c",
+    "position": {
+      "x": -60740798.92737579,
+      "y": 50963848.00152397,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 400.0,
+    "system_entity_name": "OOC_GrimHEX",
+    "type": "Station"
+  },
+  "station_reststop_stanton1_l1_RR_HUR_L1": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "New Horizons Station",
+    "name": "station_reststop_stanton1_l1_RR_HUR_L1",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton1_l1",
+    "position": {
+      "x": 16729134637.384644,
+      "y": -19937006924.891357,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton1_l1",
+    "type": "Station"
+  },
+  "station_reststop_stanton1_l2_RR_HUR_L2": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Everus Commons",
+    "name": "station_reststop_stanton1_l2_RR_HUR_L2",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton1_l2",
+    "position": {
+      "x": 14135502848.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton1_l2",
+    "type": "Station"
+  },
+  "station_reststop_stanton1_l3_RR_HUR_L3": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Thundering Express",
+    "name": "station_reststop_stanton1_l3_RR_HUR_L3",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton1_l3",
+    "position": {
+      "x": -25043446883.50293,
+      "y": 14458841787.628052,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton1_l3",
+    "type": "Station"
+  },
+  "station_reststop_stanton1_l4_RR_HUR_L4": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Southside Station",
+    "name": "station_reststop_stanton1_l4_RR_HUR_L4",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton1_l4",
+    "position": {
+      "x": 28478354915.65576,
+      "y": 5021502482.911743,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton1_l4",
+    "type": "Station"
+  },
+  "station_reststop_stanton1_l5_RR_HUR_L5": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Stormfront Rest Complex",
+    "name": "station_reststop_stanton1_l5_RR_HUR_L5",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton1_l5",
+    "position": {
+      "x": 6425227776.0,
+      "y": -11128823808.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton1_l5",
+    "type": "Station"
+  },
+  "station_reststop_stanton2_l1_RR_CRU_L1": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Shallow Fields Station",
+    "name": "station_reststop_stanton2_l1_RR_CRU_L1",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton2_l1",
+    "position": {
+      "x": 16729134637.384644,
+      "y": -19937006924.891357,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton2_l1",
+    "type": "Station"
+  },
+  "station_reststop_stanton2_l4_RR_CRU_L4": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Helix Station",
+    "name": "station_reststop_stanton2_l4_RR_CRU_L4",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton2_l4",
+    "position": {
+      "x": 28478354915.65576,
+      "y": 5021502482.911743,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton2_l4",
+    "type": "Station"
+  },
+  "station_reststop_stanton2_l5_RR_CRU_L5": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Orison Commons",
+    "name": "station_reststop_stanton2_l5_RR_CRU_L5",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton2_l5",
+    "position": {
+      "x": 6425227776.0,
+      "y": -11128823808.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton2_l5",
+    "type": "Station"
+  },
+  "station_reststop_stanton3_l1_RR_ARC_L1": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Blackwater Station",
+    "name": "station_reststop_stanton3_l1_RR_ARC_L1",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton3_l1",
+    "position": {
+      "x": 16729134637.384644,
+      "y": -19937006924.891357,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton3_l1",
+    "type": "Station"
+  },
+  "station_reststop_stanton3_l2_RR_ARC_L2": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "ARC-L2 Rest Stop",
+    "name": "station_reststop_stanton3_l2_RR_ARC_L2",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton3_l2",
+    "position": {
+      "x": 14135502848.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton3_l2",
+    "type": "Station"
+  },
+  "station_reststop_stanton3_l3_RR_ARC_L3": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Zenith Station",
+    "name": "station_reststop_stanton3_l3_RR_ARC_L3",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton3_l3",
+    "position": {
+      "x": -25043446883.50293,
+      "y": 14458841787.628052,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton3_l3",
+    "type": "Station"
+  },
+  "station_reststop_stanton3_l4_RR_ARC_L4": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "ARC-L4 Rest Stop",
+    "name": "station_reststop_stanton3_l4_RR_ARC_L4",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton3_l4",
+    "position": {
+      "x": 28478354915.65576,
+      "y": 5021502482.911743,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton3_l4",
+    "type": "Station"
+  },
+  "station_reststop_stanton3_l5_RR_ARC_L5": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Spaceborne United",
+    "name": "station_reststop_stanton3_l5_RR_ARC_L5",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton3_l5",
+    "position": {
+      "x": 6425227776.0,
+      "y": -11128823808.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton3_l5",
+    "type": "Station"
+  },
+  "station_reststop_stanton4_l1_RR_MIC_L1": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Port Renatus",
+    "name": "station_reststop_stanton4_l1_RR_MIC_L1",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton4_l1",
+    "position": {
+      "x": 16729134637.384644,
+      "y": -19937006924.891357,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton4_l1",
+    "type": "Station"
+  },
+  "station_reststop_stanton4_l2_RR_MIC_L2": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Fraternitas",
+    "name": "station_reststop_stanton4_l2_RR_MIC_L2",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton4_l2",
+    "position": {
+      "x": 14135502848.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton4_l2",
+    "type": "Station"
+  },
+  "station_reststop_stanton4_l3_RR_MIC_L3": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "MIC-L3 Rest Stop",
+    "name": "station_reststop_stanton4_l3_RR_MIC_L3",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton4_l3",
+    "position": {
+      "x": -25043446883.50293,
+      "y": 14458841787.628052,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton4_l3",
+    "type": "Station"
+  },
+  "station_reststop_stanton4_l4_RR_MIC_L4": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "MIC-L4 Rest Stop",
+    "name": "station_reststop_stanton4_l4_RR_MIC_L4",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton4_l4",
+    "position": {
+      "x": 28478354915.65576,
+      "y": 5021502482.911743,
+      "z": 8076.625
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton4_l4",
+    "type": "Station"
+  },
+  "station_reststop_stanton4_l5_RR_MIC_L5": {
+    "arrivalRadius": 24000.0,
+    "atmoHeight": 0.0,
+    "display_name": "MIC-L5 Rest Stop",
+    "name": "station_reststop_stanton4_l5_RR_MIC_L5",
+    "obstructionRadius": 8000.0,
+    "parent": "stanton4_l5",
+    "position": {
+      "x": 6425227776.0,
+      "y": -11128823808.0,
+      "z": 0.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 1200.0,
+    "system_entity_name": "OOC_RestStop_stanton4_l5",
+    "type": "Station"
+  },
+  "station_security_stanton2a_SecurityPostKareah": {
+    "arrivalRadius": 20000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Security Post Kareah",
+    "name": "station_security_stanton2a_SecurityPostKareah",
+    "obstructionRadius": 1500.0,
+    "parent": "stanton2a",
+    "position": {
+      "x": 11620.356861114502,
+      "y": -419839.4221687317,
+      "z": 200000.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 400.0,
+    "system_entity_name": "ooc_securitypostkareah",
+    "type": "Station"
+  },
+  "station_security_stanton4_l1_S4_L1_SecurityDockStation": {
+    "arrivalRadius": 4000.0,
+    "display_name": "Security Dock Station",
+    "name": "station_security_stanton4_l1_S4_L1_SecurityDockStation",
+    "obstructionRadius": 1000.0,
+    "parent": "stanton4_l1",
+    "size": 2200.0,
+    "type": "Station"
+  },
+  "station_shippinghub_stanton2b_CovalexShippingHub": {
+    "arrivalRadius": 4000.0,
+    "atmoHeight": 0.0,
+    "display_name": "Covalex Shipping Hub",
+    "name": "station_shippinghub_stanton2b_CovalexShippingHub",
+    "obstructionRadius": 450.0,
+    "parent": "stanton2b",
+    "position": {
+      "x": -241198.06295394897,
+      "y": 437977.48665618896,
+      "z": -300000.0
+    },
+    "rotation": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": 100.0,
+    "system_entity_name": "ooc_covalexshippinghub",
+    "type": "Station"
+  }
+}
