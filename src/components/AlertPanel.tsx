@@ -1,168 +1,190 @@
 import { useState } from 'react';
-import { Alert, CelestialObject } from '../models/types';
+import { RouteAlert, BaseCelestialObject } from '../models/celestialObjects';
 
 interface AlertPanelProps {
-  selectedObject?: CelestialObject;
-  alerts: Alert[];
-  onCreateAlert?: (alert: Omit<Alert, 'id' | 'createdAt'>) => void;
+  selectedObject: BaseCelestialObject | null;
+  alerts: RouteAlert[];
+  onCreateAlert?: (alert: Partial<RouteAlert>) => void;
 }
 
 const AlertPanel = ({ selectedObject, alerts, onCreateAlert }: AlertPanelProps) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [severity, setSeverity] = useState<Alert['severity']>('medium');
+  const [severity, setSeverity] = useState<RouteAlert['severity']>('medium');
   const [isPublic, setIsPublic] = useState(true);
-  const [expiresIn, setExpiresIn] = useState('24');
+  const [isCreating, setIsCreating] = useState(false);
+
+  const resetForm = () => {
+    setTitle('');
+    setDescription('');
+    setSeverity('medium');
+    setIsPublic(true);
+    setIsCreating(false);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedObject || !title || !description) return;
 
-    const expiresAt = expiresIn ? new Date(Date.now() + parseInt(expiresIn) * 60 * 60 * 1000) : undefined;
-
     if (onCreateAlert) {
       onCreateAlert({
-        userId: 'current-user', // In a real app, this would be from auth
-        objectId: selectedObject.id,
         title,
         description,
         severity,
-        isPublic,
-        expiresAt
+        isPublic
       });
+      resetForm();
     }
-
-    // Reset form
-    setTitle('');
-    setDescription('');
-    setSeverity('medium');
-    setIsPublic(true);
-    setExpiresIn('24');
   };
 
-  const filteredAlerts = selectedObject 
-    ? alerts.filter(alert => alert.objectId === selectedObject.id)
-    : alerts;
+  // Format date to readable string
+  const formatDate = (date: Date) => {
+    return new Date(date).toLocaleString();
+  };
+
+  // Calculate time remaining for an alert (in hours)
+  const getTimeRemaining = (expiresAt: Date) => {
+    const now = new Date();
+    const expiry = new Date(expiresAt);
+    const diff = expiry.getTime() - now.getTime();
+    
+    if (diff <= 0) return 'Expired';
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m remaining`;
+    }
+    return `${minutes}m remaining`;
+  };
 
   return (
-    <div className="bg-sc-dark text-sc-light p-4 rounded-lg shadow-lg w-full max-w-md">
-      <h2 className="text-xl font-bold mb-4 text-sc-blue">Alerts</h2>
+    <div className="h-full flex flex-col">
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-white mb-2">
+          {selectedObject ? selectedObject.display_name : 'Select an object'}
+        </h2>
+        {selectedObject && (
+          <div className="text-gray-300 text-sm mb-2">
+            <p>Type: {selectedObject.type}</p>
+            <p>Size: {selectedObject.size.toLocaleString()} meters</p>
+            {selectedObject.atmoHeight > 0 && (
+              <p>Atmosphere Height: {selectedObject.atmoHeight.toLocaleString()} meters</p>
+            )}
+          </div>
+        )}
+      </div>
       
       {selectedObject && (
         <div className="mb-4">
-          <h3 className="text-lg font-semibold">{selectedObject.name}</h3>
-          <p className="text-sm opacity-75">{selectedObject.description}</p>
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-lg font-semibold text-white">Alerts</h3>
+            {!isCreating && (
+              <button
+                onClick={() => setIsCreating(true)}
+                className="px-2 py-1 bg-sc-blue text-white text-sm rounded"
+              >
+                Create Alert
+              </button>
+            )}
+          </div>
+          
+          {isCreating ? (
+            <form onSubmit={handleSubmit} className="bg-gray-800 p-3 rounded mb-4">
+              <div className="mb-3">
+                <label className="block text-gray-300 text-sm mb-1">Title</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full bg-gray-700 text-white p-2 rounded"
+                  required
+                />
+              </div>
+              
+              <div className="mb-3">
+                <label className="block text-gray-300 text-sm mb-1">Description</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full bg-gray-700 text-white p-2 rounded"
+                  rows={3}
+                  required
+                />
+              </div>
+              
+              <div className="mb-3">
+                <label className="block text-gray-300 text-sm mb-1">Severity</label>
+                <select
+                  value={severity}
+                  onChange={(e) => setSeverity(e.target.value as RouteAlert['severity'])}
+                  className="w-full bg-gray-700 text-white p-2 rounded"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              
+              <div className="mb-3 flex items-center">
+                <input
+                  type="checkbox"
+                  id="isPublic"
+                  checked={isPublic}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                  className="mr-2"
+                />
+                <label htmlFor="isPublic" className="text-gray-300 text-sm">Make public</label>
+              </div>
+              
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreating(false)}
+                  className="px-3 py-1 bg-gray-600 text-white rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-3 py-1 bg-sc-blue text-white rounded"
+                >
+                  Submit
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              {alerts.length === 0 ? (
+                <p className="text-gray-400 text-center py-4">No alerts for this location</p>
+              ) : (
+                <ul className="space-y-3 overflow-y-auto max-h-96">
+                  {alerts.map((alert) => (
+                    <li key={alert.id} className="bg-gray-800 p-3 rounded">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-medium text-white">{alert.title}</h4>
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${
+                          alert.severity === 'high' ? 'bg-red-600' :
+                          alert.severity === 'medium' ? 'bg-yellow-600' : 'bg-green-600'
+                        }`}>
+                          {alert.severity}
+                        </span>
+                      </div>
+                      <p className="text-gray-300 text-sm mt-1">{alert.description}</p>
+                      <div className="mt-2 text-xs text-gray-400 flex justify-between">
+                        <span>Created: {formatDate(alert.createdAt)}</span>
+                        {alert.expiresAt && (
+                          <span>{getTimeRemaining(alert.expiresAt)}</span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
         </div>
-      )}
-
-      <div className="max-h-60 overflow-y-auto scrollbar-sc mb-4">
-        {filteredAlerts.length > 0 ? (
-          <ul className="space-y-2">
-            {filteredAlerts.map(alert => (
-              <li 
-                key={alert.id} 
-                className={`p-3 rounded-md ${
-                  alert.severity === 'high' 
-                    ? 'bg-red-900/30 border-l-4 border-red-600' 
-                    : alert.severity === 'medium'
-                      ? 'bg-yellow-900/30 border-l-4 border-yellow-600'
-                      : 'bg-blue-900/30 border-l-4 border-blue-600'
-                }`}
-              >
-                <h4 className="font-medium">{alert.title}</h4>
-                <p className="text-sm">{alert.description}</p>
-                <div className="text-xs mt-1 flex justify-between">
-                  <span>
-                    {new Date(alert.createdAt).toLocaleString()}
-                  </span>
-                  {alert.expiresAt && (
-                    <span>
-                      Expires: {new Date(alert.expiresAt).toLocaleString()}
-                    </span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-center text-gray-400 italic py-4">No alerts for this location</p>
-        )}
-      </div>
-
-      {selectedObject && (
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <h3 className="text-lg font-semibold border-b border-sc-blue pb-1">Create Alert</h3>
-          
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium mb-1">Title</label>
-            <input
-              type="text"
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm"
-              required
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium mb-1">Description</label>
-            <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm h-20"
-              required
-            />
-          </div>
-          
-          <div className="flex space-x-4">
-            <div className="flex-1">
-              <label htmlFor="severity" className="block text-sm font-medium mb-1">Severity</label>
-              <select
-                id="severity"
-                value={severity}
-                onChange={(e) => setSeverity(e.target.value as Alert['severity'])}
-                className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-            
-            <div className="flex-1">
-              <label htmlFor="expiresIn" className="block text-sm font-medium mb-1">Expires In (hours)</label>
-              <input
-                type="number"
-                id="expiresIn"
-                value={expiresIn}
-                onChange={(e) => setExpiresIn(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm"
-                min="1"
-                step="1"
-              />
-            </div>
-          </div>
-          
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="isPublic"
-              checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)}
-              className="mr-2 h-4 w-4"
-            />
-            <label htmlFor="isPublic" className="text-sm">Make alert public</label>
-          </div>
-          
-          <button
-            type="submit"
-            className="w-full bg-sc-blue text-white font-medium py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Create Alert
-          </button>
-        </form>
       )}
     </div>
   );
