@@ -3,37 +3,39 @@ import { SystemMap } from './components/SystemMap';
 import './App.css';
 
 // Define the SystemMap data structure for the flat JSON format
-interface SystemMapData {
-  [key: string]: {
-    name: string;
-    display_name: string;
-    type: string;
-    parent: string;
-    position: {
-      x: number;
-      y: number;
-      z: number;
-    };
-    rotation: {
-      w: number;
-      x: number;
-      y: number;
-      z: number;
-    };
-    size: number;
-    arrivalRadius: number;
-    obstructionRadius: number;
-    atmoHeight: number;
-    system_entity_name: string;
-    orbitalMarkers?: {
-      om1: { x: number; y: number; z: number };
-      om2: { x: number; y: number; z: number };
-      om3: { x: number; y: number; z: number };
-      om4: { x: number; y: number; z: number };
-      om5: { x: number; y: number; z: number };
-      om6: { x: number; y: number; z: number };
-    };
+interface SystemMapObject {
+  name: string;
+  display_name: string;
+  type: string;
+  parent: string;
+  position?: {
+    x: number;
+    y: number;
+    z: number;
   };
+  rotation: {
+    w: number;
+    x: number;
+    y: number;
+    z: number;
+  };
+  size: number;
+  arrivalRadius: number;
+  obstructionRadius: number;
+  atmoHeight: number;
+  system_entity_name: string;
+  orbitalMarkers?: {
+    om1: { x: number; y: number; z: number };
+    om2: { x: number; y: number; z: number };
+    om3: { x: number; y: number; z: number };
+    om4: { x: number; y: number; z: number };
+    om5: { x: number; y: number; z: number };
+    om6: { x: number; y: number; z: number };
+  };
+}
+
+interface SystemMapData {
+  [key: string]: SystemMapObject;
 }
 
 function App() {
@@ -49,8 +51,20 @@ function App() {
         if (!response.ok) {
           throw new Error(`Failed to load system data: ${response.status} ${response.statusText}`);
         }
-        const data = await response.json();
+        const data = await response.json() as SystemMapData;
+        
+        // Log data load success
         console.log('Data loaded successfully:', Object.keys(data).length, 'objects');
+        
+        // Log objects with missing position data
+        const missingPositions = Object.entries(data)
+          .filter(([_, obj]) => !obj.position)
+          .map(([key, obj]) => ({ key, name: obj.display_name, type: obj.type }));
+          
+        if (missingPositions.length > 0) {
+          console.warn('Objects with missing position data:', missingPositions);
+        }
+        
         setSystemData(data);
         setLoading(false);
       } catch (err) {

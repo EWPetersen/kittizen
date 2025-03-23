@@ -1,0 +1,85 @@
+.mini-map-container {
+  background-color: rgba(20, 25, 40, 0.75);
+  border: 1px solid rgba(100, 150, 200, 0.3);
+  border-radius: 8px;
+  bottom: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  left: 20px;
+  overflow: hidden;
+  position: absolute;
+  transition: all 0.3s ease;
+  z-index: 100;
+}
+
+.mini-map-container.expanded {
+  height: 300px;
+  width: 300px;
+}
+
+.mini-map-canvas {
+  cursor: crosshair;
+  display: block;
+}
+
+.mini-map-title {
+  background-color: rgba(20, 30, 60, 0.8);
+  border-top: 1px solid rgba(100, 150, 200, 0.3);
+  color: #d0d0d0;
+  font-family: 'Arial', sans-serif;
+  font-size: 11px;
+  padding: 5px 0;
+  position: absolute;
+  text-align: center;
+  bottom: 0;
+  width: 100%;
+}
+
+.mini-map-toggle {
+  background-color: rgba(40, 60, 100, 0.7);
+  border: 1px solid rgba(100, 150, 200, 0.5);
+  border-radius: 4px;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  height: 20px;
+  line-height: 16px;
+  padding: 0;
+  position: absolute;
+  right: 5px;
+  text-align: center;
+  top: 5px;
+  transition: background-color 0.2s;
+  width: 20px;
+}
+
+.mini-map-toggle:hover {
+  background-color: rgba(60, 100, 160, 0.8);
+}
+
+.mini-map-tooltip {
+  background-color: rgba(30, 40, 60, 0.9);
+  border: 1px solid rgba(100, 150, 200, 0.4);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  color: #ffffff;
+  font-family: 'Arial', sans-serif;
+  left: 50%;
+  max-width: 200px;
+  padding: 5px 10px;
+  pointer-events: none;
+  position: absolute;
+  top: 10px;
+  transform: translateX(-50%);
+  z-index: 101;
+}
+
+.tooltip-title {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.tooltip-type {
+  color: #a0c0ff;
+  font-size: 10px;
+} 
