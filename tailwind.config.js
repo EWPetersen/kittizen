@@ -12,6 +12,9 @@ export default {
         'sc-light': '#f0f0f0',
         'sc-accent': '#d4af37',
       },
+      fontFamily: {
+        'mono': ['"Space Mono"', 'monospace'],
+      },
     },
   },
   plugins: [],

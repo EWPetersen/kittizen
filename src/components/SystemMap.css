@@ -1,0 +1,155 @@
+.system-map-container {
+  width: 100%;
+  height: 100vh;
+  position: relative;
+  background-color: #000;
+  display: flex;
+  color: #fff;
+  font-family: 'Space Mono', monospace;
+}
+
+.controls-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 300px;
+  height: 100%;
+  background-color: rgba(10, 10, 20, 0.8);
+  padding: 20px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.controls-panel h2 {
+  color: #48b4ff;
+  margin: 0 0 20px 0;
+  font-size: 24px;
+  border-bottom: 1px solid #48b4ff;
+  padding-bottom: 10px;
+}
+
+.controls-panel h3 {
+  color: #48b4ff;
+  margin: 0 0 10px 0;
+  font-size: 18px;
+}
+
+.filter-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background-color: rgba(0, 0, 0, 0.3);
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.filter-group label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.filter-group input[type="checkbox"] {
+  margin-right: 10px;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #48b4ff;
+}
+
+.view-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.view-controls button {
+  background-color: #1a2740;
+  color: #fff;
+  border: 1px solid #48b4ff;
+  padding: 8px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 14px;
+}
+
+.view-controls button:hover {
+  background-color: #2a3750;
+}
+
+.canvas-container {
+  flex: 1;
+  height: 100%;
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  .system-map-container {
+    flex-direction: column;
+  }
+  
+  .controls-panel {
+    position: relative;
+    width: 100%;
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+  
+  .canvas-container {
+    height: 60vh;
+  }
+}
+
+/* System Elements Styling */
+.label-text {
+  color: #fff;
+  background-color: rgba(0, 0, 0, 0.6);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  transform: translate(-50%, -50%);
+}
+
+.star-label {
+  color: #ffcc33;
+  font-weight: bold;
+}
+
+.planet-label {
+  color: #3399ff;
+}
+
+.moon-label {
+  color: #cccccc;
+}
+
+.jump-point-label {
+  color: #66ff66;
+}
+
+.lagrange-point-label {
+  color: #cc99ff;
+}
+
+.station-label {
+  color: #ff6666;
+}
+
+.landing-zone-label {
+  color: #ff99cc;
+} 

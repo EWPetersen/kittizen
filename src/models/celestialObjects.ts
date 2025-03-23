@@ -35,7 +35,20 @@ export interface OrbitalMarkers {
 }
 
 /**
- * Base properties common to all celestial objects
+ * Types of celestial objects in the Stanton system
+ */
+export type CelestialObjectType = 
+  | 'Star' 
+  | 'Planet' 
+  | 'Moon' 
+  | 'JumpPoint' 
+  | 'LagrangePoint' 
+  | 'LandingZone' 
+  | 'CommArray' 
+  | 'Station';
+
+/**
+ * Base interface for all celestial objects in the Stanton system
  */
 export interface BaseCelestialObject {
   /** Unique name identifier */
@@ -43,7 +56,7 @@ export interface BaseCelestialObject {
   /** Human-readable display name */
   display_name: string;
   /** Type of celestial object */
-  type: string;
+  type: CelestialObjectType;
   /** Parent object name reference */
   parent: string;
   /** Position in 3D space */
@@ -59,41 +72,39 @@ export interface BaseCelestialObject {
   /** Height of atmosphere in meters (0 for no atmosphere) */
   atmoHeight: number;
   /** System entity name for reference */
-  system_entity_name?: string;
-  /** Orbital markers (optional, only for planets and moons) */
-  orbitalMarkers?: OrbitalMarkers;
+  system_entity_name: string;
 }
 
 /**
- * Jump Point connecting to another star system
+ * Jump Point between star systems
  */
 export interface JumpPoint extends BaseCelestialObject {
   type: "JumpPoint";
 }
 
 /**
- * Lagrange point - stable orbital position
+ * Lagrange Point - stable orbital position
  */
 export interface LagrangePoint extends BaseCelestialObject {
   type: "LagrangePoint";
 }
 
 /**
- * Communication Array
+ * Communication Array station
  */
 export interface CommArray extends BaseCelestialObject {
   type: "CommArray";
 }
 
 /**
- * Star - central body of a star system
+ * Star - central object of a star system
  */
 export interface Star extends BaseCelestialObject {
   type: "Star";
 }
 
 /**
- * Planet - major celestial body orbiting a star
+ * Planet - large celestial body orbiting a star
  */
 export interface Planet extends BaseCelestialObject {
   type: "Planet";
@@ -111,21 +122,21 @@ export interface Moon extends BaseCelestialObject {
 }
 
 /**
- * Landing Zone - major surface location on a planet or moon
+ * Landing Zone - surface location on a planet/moon
  */
 export interface LandingZone extends BaseCelestialObject {
   type: "LandingZone";
 }
 
 /**
- * Station - orbital or space facility
+ * Space Station - artificial structure in space
  */
 export interface Station extends BaseCelestialObject {
   type: "Station";
 }
 
 /**
- * Station subtypes for specific station purposes
+ * Rest Stop Station - specialized station type
  */
 export interface RestStopStation extends Station {
   /** Station pattern includes "reststop" in name */
@@ -144,14 +155,14 @@ export interface ShippingHubStation extends Station {
 }
 
 /**
- * Complete map data structure
+ * Complete Stanton system map containing all celestial objects
  */
 export interface StantonSystemMap {
   [key: string]: JumpPoint | LagrangePoint | Star | Planet | Moon | LandingZone | Station | CommArray;
 }
 
 /**
- * Quantum Travel mechanics
+ * Parameters for quantum travel between objects
  */
 export interface QuantumTravelParameters {
   /** Distance from target at which arrival occurs */
@@ -165,7 +176,7 @@ export interface QuantumTravelParameters {
 }
 
 /**
- * User-generated route alert
+ * Alert for routes in the system
  */
 export interface RouteAlert {
   /** Unique identifier */
@@ -197,7 +208,7 @@ export interface RouteAlert {
 }
 
 /**
- * User profile
+ * User profile information
  */
 export interface UserProfile {
   /** Unique identifier */
@@ -226,4 +237,67 @@ export interface UserProfile {
     defaultView: 'system' | 'planet' | 'moon' | 'station';
     defaultSystem: string;
   }
+}
+
+/**
+ * Type guard for checking if a celestial object is a Star
+ */
+export function isStar(object: BaseCelestialObject): object is Star {
+  return object.type === 'Star';
+}
+
+/**
+ * Type guard for checking if a celestial object is a Planet
+ */
+export function isPlanet(object: BaseCelestialObject): object is Planet {
+  return object.type === 'Planet';
+}
+
+/**
+ * Type guard for checking if a celestial object is a Moon
+ */
+export function isMoon(object: BaseCelestialObject): object is Moon {
+  return object.type === 'Moon';
+}
+
+/**
+ * Type guard for checking if a celestial object is a Jump Point
+ */
+export function isJumpPoint(object: BaseCelestialObject): object is JumpPoint {
+  return object.type === 'JumpPoint';
+}
+
+/**
+ * Type guard for checking if a celestial object is a Lagrange Point
+ */
+export function isLagrangePoint(object: BaseCelestialObject): object is LagrangePoint {
+  return object.type === 'LagrangePoint';
+}
+
+/**
+ * Type guard for checking if a celestial object is a Landing Zone
+ */
+export function isLandingZone(object: BaseCelestialObject): object is LandingZone {
+  return object.type === 'LandingZone';
+}
+
+/**
+ * Type guard for checking if a celestial object is a Comm Array
+ */
+export function isCommArray(object: BaseCelestialObject): object is CommArray {
+  return object.type === 'CommArray';
+}
+
+/**
+ * Type guard for checking if a celestial object is a Station
+ */
+export function isStation(object: BaseCelestialObject): object is Station {
+  return object.type === 'Station';
+}
+
+/**
+ * Complete data structure for the Stanton system
+ */
+export type StantonSystem = {
+  [key: string]: BaseCelestialObject;
 } 

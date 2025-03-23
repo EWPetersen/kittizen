@@ -1,191 +1,158 @@
 import { useState } from 'react';
-import { RouteAlert, BaseCelestialObject } from '../models/celestialObjects';
+import { RouteAlert } from '../models/celestialObjects';
 
 interface AlertPanelProps {
-  selectedObject: BaseCelestialObject | null;
-  alerts: RouteAlert[];
-  onCreateAlert?: (alert: Partial<RouteAlert>) => void;
+  objectId: string;
 }
 
-const AlertPanel = ({ selectedObject, alerts, onCreateAlert }: AlertPanelProps) => {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [severity, setSeverity] = useState<RouteAlert['severity']>('medium');
-  const [isPublic, setIsPublic] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
+const AlertPanel = ({ objectId }: AlertPanelProps) => {
+  const [alerts, setAlerts] = useState<RouteAlert[]>([]);
+  const [showAlertForm, setShowAlertForm] = useState(false);
+  const [newAlert, setNewAlert] = useState({
+    title: '',
+    description: '',
+    severity: 'medium'
+  });
 
-  const resetForm = () => {
-    setTitle('');
-    setDescription('');
-    setSeverity('medium');
-    setIsPublic(true);
-    setIsCreating(false);
+  // Toggle alert form
+  const toggleAlertForm = () => {
+    setShowAlertForm(!showAlertForm);
   };
 
+  // Handle input changes in the form
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setNewAlert({
+      ...newAlert,
+      [name]: value
+    });
+  };
+
+  // Submit new alert
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedObject || !title || !description) return;
-
-    if (onCreateAlert) {
-      onCreateAlert({
-        title,
-        description,
-        severity,
-        isPublic
-      });
-      resetForm();
-    }
-  };
-
-  // Format date to readable string
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleString();
-  };
-
-  // Calculate time remaining for an alert (in hours)
-  const getTimeRemaining = (expiresAt: Date) => {
-    const now = new Date();
-    const expiry = new Date(expiresAt);
-    const diff = expiry.getTime() - now.getTime();
     
-    if (diff <= 0) return 'Expired';
+    // In a real app, this would save to a database
+    // For demo purposes, we're just adding it to local state
+    const mockAlert: RouteAlert = {
+      id: `alert-${Date.now()}`,
+      userId: 'demo-user',
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
+      objectId,
+      title: newAlert.title,
+      description: newAlert.description,
+      severity: newAlert.severity as 'low' | 'medium' | 'high',
+      serverId: 'demo-server',
+      region: 'NA',
+      confirmations: 0,
+      disputes: 0,
+      isPublic: true
+    };
     
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m remaining`;
-    }
-    return `${minutes}m remaining`;
+    setAlerts([...alerts, mockAlert]);
+    setNewAlert({ title: '', description: '', severity: 'medium' });
+    setShowAlertForm(false);
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="mb-4">
-        <h2 className="text-xl font-bold text-white mb-2">
-          {selectedObject ? selectedObject.display_name : 'Select an object'}
-        </h2>
-        {selectedObject && (
-          <div className="text-gray-300 text-sm mb-2">
-            <p>Type: {selectedObject.type}</p>
-            <p>Size: {selectedObject.size.toLocaleString()} meters</p>
-            {selectedObject.atmoHeight > 0 && (
-              <p>Atmosphere Height: {selectedObject.atmoHeight.toLocaleString()} meters</p>
-            )}
-          </div>
-        )}
+    <div className="mt-6 pt-6 border-t border-gray-800">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold">Alerts</h3>
+        <button 
+          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+          onClick={toggleAlertForm}
+        >
+          {showAlertForm ? 'Cancel' : 'Add Alert'}
+        </button>
       </div>
       
-      {selectedObject && (
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="text-lg font-semibold text-white">Alerts</h3>
-            {!isCreating && (
-              <button
-                onClick={() => setIsCreating(true)}
-                className="px-2 py-1 bg-sc-blue text-white text-sm rounded"
-              >
-                Create Alert
-              </button>
-            )}
+      {/* Alert form */}
+      {showAlertForm && (
+        <form onSubmit={handleSubmit} className="mb-4 bg-gray-800 p-3 rounded-md">
+          <div className="mb-3">
+            <label className="block text-sm font-medium mb-1">Title</label>
+            <input
+              type="text"
+              name="title"
+              value={newAlert.title}
+              onChange={handleInputChange}
+              className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+              required
+            />
           </div>
           
-          {isCreating ? (
-            <form onSubmit={handleSubmit} className="bg-gray-800 p-3 rounded mb-4">
-              <div className="mb-3">
-                <label className="block text-gray-300 text-sm mb-1">Title</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full bg-gray-700 text-white p-2 rounded"
-                  required
-                />
-              </div>
-              
-              <div className="mb-3">
-                <label className="block text-gray-300 text-sm mb-1">Description</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-gray-700 text-white p-2 rounded"
-                  rows={3}
-                  required
-                />
-              </div>
-              
-              <div className="mb-3">
-                <label className="block text-gray-300 text-sm mb-1">Severity</label>
-                <select
-                  value={severity}
-                  onChange={(e) => setSeverity(e.target.value as RouteAlert['severity'])}
-                  className="w-full bg-gray-700 text-white p-2 rounded"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-              
-              <div className="mb-3 flex items-center">
-                <input
-                  type="checkbox"
-                  id="isPublic"
-                  checked={isPublic}
-                  onChange={(e) => setIsPublic(e.target.checked)}
-                  className="mr-2"
-                />
-                <label htmlFor="isPublic" className="text-gray-300 text-sm">Make public</label>
-              </div>
-              
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCreating(false)}
-                  className="px-3 py-1 bg-gray-600 text-white rounded"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-3 py-1 bg-sc-blue text-white rounded"
-                >
-                  Submit
-                </button>
-              </div>
-            </form>
-          ) : (
-            <>
-              {alerts.length === 0 ? (
-                <p className="text-gray-400 text-center py-4">No alerts for this location</p>
-              ) : (
-                <ul className="space-y-3 overflow-y-auto max-h-96">
-                  {alerts.map((alert) => (
-                    <li key={alert.id} className="bg-gray-800 p-3 rounded">
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-medium text-white">{alert.title}</h4>
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${
-                          alert.severity === 'high' ? 'bg-red-600' :
-                          alert.severity === 'medium' ? 'bg-yellow-600' : 'bg-green-600'
-                        }`}>
-                          {alert.severity}
-                        </span>
-                      </div>
-                      <p className="text-gray-300 text-sm mt-1">{alert.description}</p>
-                      <div className="mt-2 text-xs text-gray-400 flex justify-between">
-                        <span>Created: {formatDate(alert.createdAt)}</span>
-                        {alert.expiresAt && (
-                          <span>{getTimeRemaining(alert.expiresAt)}</span>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-        </div>
+          <div className="mb-3">
+            <label className="block text-sm font-medium mb-1">Description</label>
+            <textarea
+              name="description"
+              value={newAlert.description}
+              onChange={handleInputChange}
+              className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+              rows={3}
+              required
+            />
+          </div>
+          
+          <div className="mb-3">
+            <label className="block text-sm font-medium mb-1">Severity</label>
+            <select
+              name="severity"
+              value={newAlert.severity}
+              onChange={handleInputChange}
+              className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+          
+          <button 
+            type="submit" 
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+          >
+            Submit Alert
+          </button>
+        </form>
       )}
+      
+      {/* Alert list */}
+      <div className="space-y-3">
+        {alerts.length > 0 ? (
+          alerts.map(alert => (
+            <div 
+              key={alert.id} 
+              className={`p-3 rounded-md ${
+                alert.severity === 'high' ? 'bg-red-900 bg-opacity-40 border border-red-700' :
+                alert.severity === 'medium' ? 'bg-yellow-900 bg-opacity-40 border border-yellow-700' :
+                'bg-blue-900 bg-opacity-40 border border-blue-700'
+              }`}
+            >
+              <div className="flex justify-between items-start">
+                <h4 className="font-medium">{alert.title}</h4>
+                <span className={`text-xs px-2 py-1 rounded ${
+                  alert.severity === 'high' ? 'bg-red-700' :
+                  alert.severity === 'medium' ? 'bg-yellow-700' :
+                  'bg-blue-700'
+                }`}>
+                  {alert.severity}
+                </span>
+              </div>
+              <p className="text-sm mt-1 text-gray-300">{alert.description}</p>
+              <div className="flex justify-between text-xs text-gray-400 mt-2">
+                <span>Expires in {Math.round((alert.expiresAt.getTime() - Date.now()) / (60 * 60 * 1000))} hours</span>
+                <div>
+                  <span className="mr-2">👍 {alert.confirmations}</span>
+                  <span>👎 {alert.disputes}</span>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="text-gray-500 text-sm italic">No alerts for this location</p>
+        )}
+      </div>
     </div>
   );
 };
