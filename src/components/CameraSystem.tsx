@@ -13,6 +13,10 @@ const DEFAULT_DISTANCE_MULTIPLIER = 2.5; // Default view distance multiplier
 const TRANSITION_DURATION = 1.5; // seconds
 const EASE_FACTOR = 2.2; // Higher = more pronounced easing
 
+// Default camera settings
+const DEFAULT_CAMERA_POSITION = [500, 250, 500] as [number, number, number]; // Closer initial position
+const DEFAULT_SYSTEM_VIEW_DISTANCE = 800; // Reduced from 2000 for closer view
+
 export interface CameraSystemProps {
   objectsMap: StantonSystemMap;
   selectedObject: string | null;
@@ -148,7 +152,7 @@ const CameraSystem = React.forwardRef<CameraSystemRef, CameraSystemProps>(
         if (!centralStar.position) {
           console.warn("Central star has no position data");
           // Use default position
-          const systemViewDistance = 2000;
+          const systemViewDistance = DEFAULT_SYSTEM_VIEW_DISTANCE;
           const systemCameraPosition = new THREE.Vector3(
             systemViewDistance,
             systemViewDistance * 0.5,
@@ -166,7 +170,7 @@ const CameraSystem = React.forwardRef<CameraSystemRef, CameraSystemProps>(
         );
         
         // Set camera to view the whole system
-        const systemViewDistance = 2000; // adjusted for system scale
+        const systemViewDistance = DEFAULT_SYSTEM_VIEW_DISTANCE; // adjusted for system scale
         const systemCameraPosition = new THREE.Vector3(
           starPosition.x + systemViewDistance,
           starPosition.y + systemViewDistance * 0.5,
@@ -339,7 +343,7 @@ const CameraSystem = React.forwardRef<CameraSystemRef, CameraSystemProps>(
       <>
         <PerspectiveCamera 
           makeDefault 
-          position={[2000, 1000, 2000]}
+          position={DEFAULT_CAMERA_POSITION}
           fov={60}
           near={0.1}
           far={100000}
