@@ -31,7 +31,7 @@ const OrbitPathRenderer: React.FC<OrbitPathRendererProps> = ({
 }) => {
   // Filter out objects that don't have position data
   const objectsWithPosition = useMemo(() => 
-    childObjects.filter(obj => obj.position && obj.type === 'Planet' || obj.type === 'Moon'),
+    childObjects.filter(obj => obj.position && (obj.type === 'Planet' || obj.type === 'Moon')),
   [childObjects]);
 
   // Create orbital paths
@@ -59,36 +59,40 @@ const OrbitPathRenderer: React.FC<OrbitPathRendererProps> = ({
       // Calculate orbit radius (distance from parent to child)
       const orbitRadius = childPosition.distanceTo(parentPosition);
       
-      // Create points for a circular orbit
+      // Project child position to calculate a proper XY plane orbit
+      // We want to retain the distance but primarily place orbits in XY plane
+      
+      // Step 1: Calculate a vector from parent to child
+      const directionToChild = childPosition.clone().sub(parentPosition).normalize();
+      
+      // Step 2: Calculate a small random tilt (much less than before)
+      // This creates slight variation between orbits but keeps them mostly in XY
+      // Random angle between -0.05 and 0.05 radians (approximately ±3 degrees)
+      const tiltAngle = (Math.random() * 0.1 - 0.05) * (child.type === 'Moon' ? 2 : 1);
+      
+      // Create points for a circular orbit in XY plane with slight tilt
       const points: THREE.Vector3[] = [];
       for (let i = 0; i <= ORBIT_RESOLUTION; i++) {
         const angle = (i / ORBIT_RESOLUTION) * Math.PI * 2;
         
-        // Calculate orbit plane normal (approximation based on child position)
-        // In a real simulation, this would come from orbital mechanics calculations
-        const directionToChild = childPosition.clone().sub(parentPosition).normalize();
-        
-        // Create a perpendicular vector to define the orbit plane
-        // This is a simple approximation that keeps orbits roughly aligned
-        // with the system's ecliptic plane, with some variation
-        const normal = new THREE.Vector3(0, 1, 0);
-        if (Math.abs(directionToChild.y) > 0.9) {
-          // If the object is mostly above/below the parent, use a different normal
-          normal.set(1, 0, 0);
-        }
-        
-        // Create the orbit point
+        // Create the orbit point primarily in the XY plane
         const orbitPoint = new THREE.Vector3(
           Math.cos(angle) * orbitRadius,
-          0,
-          Math.sin(angle) * orbitRadius
+          Math.sin(angle) * orbitRadius * Math.sin(tiltAngle), // Small Y variation
+          Math.sin(angle) * orbitRadius * Math.cos(tiltAngle)  // Primary Z component
         );
         
-        // Rotate the orbit to match the approximated plane
-        const rotationAxis = directionToChild.clone().cross(new THREE.Vector3(0, 0, 1)).normalize();
-        const rotationAngle = Math.acos(directionToChild.dot(new THREE.Vector3(0, 0, 1)));
-        
-        if (rotationAxis.length() > 0.001) {
+        // Apply a minimal rotation based on the parent-child vector
+        // This keeps orbits generally aligned but with realistic variation
+        if (child.type === 'Planet') {
+          // For planets, very minimal rotation to keep orbits near the XY plane
+          const rotationAxis = new THREE.Vector3(0, 0, 1);
+          const rotationAngle = 0.05; // Very small angle, about 3 degrees
+          orbitPoint.applyAxisAngle(rotationAxis, rotationAngle);
+        } else {
+          // For moons, slightly more variation is realistic
+          const rotationAxis = new THREE.Vector3(1, 0, 0);
+          const rotationAngle = 0.1; // Small angle, about 6 degrees
           orbitPoint.applyAxisAngle(rotationAxis, rotationAngle);
         }
         

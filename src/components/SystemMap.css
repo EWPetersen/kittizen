@@ -155,7 +155,7 @@
 .display-controls {
   position: absolute;
   top: 20px;
-  right: 20px;
+  left: 20px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -195,7 +195,7 @@
     flex-direction: row;
     top: auto;
     bottom: 20px;
-    right: 20px;
+    left: 20px;
   }
   
   .display-control-btn {
