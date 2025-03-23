@@ -14,8 +14,8 @@ const TRANSITION_DURATION = 1.5; // seconds
 const EASE_FACTOR = 2.2; // Higher = more pronounced easing
 
 // Default camera settings
-const DEFAULT_CAMERA_POSITION = [500, 250, 500] as [number, number, number]; // Closer initial position
-const DEFAULT_SYSTEM_VIEW_DISTANCE = 800; // Reduced from 2000 for closer view
+const DEFAULT_CAMERA_POSITION = [0, 0, 90] as [number, number, number]; // Closer initial position
+const DEFAULT_SYSTEM_VIEW_DISTANCE = 90; // Reduced from 2000 for closer view
 
 export interface CameraSystemProps {
   objectsMap: StantonSystemMap;
