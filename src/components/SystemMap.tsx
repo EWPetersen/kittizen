@@ -13,13 +13,17 @@ import {
   Station,
   LandingZone,
   CelestialObjectType,
-  CommArray
+  CommArray,
+  isStar,
+  isPlanet,
+  isMoon
 } from '../models/celestialObjects';
 import StantonMapControls from './StantonMapControls';
 import ControlsHelp from './ControlsHelp';
 import CelestialBodyRenderer from './renderers/CelestialBodyRenderer';
 import NavigationPointRenderer from './renderers/NavigationPointRenderer';
 import OrbitPathRenderer from './renderers/OrbitPathRenderer';
+import OrbitalDiskRenderer from './renderers/OrbitalDiskRenderer';
 import './SystemMap.css';
 import SystemBrowser from './SystemBrowser';
 import MiniMap from './MiniMap';
@@ -96,6 +100,7 @@ interface VisibilityFilters {
   lagrangePoints: boolean;
   stations: boolean;
   landingZones: boolean;
+  orbitalDisk: boolean;
   orbitPaths: boolean;
 }
 
@@ -159,6 +164,7 @@ export const SystemMap = ({ systemData }: { systemData: SystemMapData }) => {
     lagrangePoints: true,
     stations: true,
     landingZones: true,
+    orbitalDisk: true,
     orbitPaths: true
   });
   
@@ -242,105 +248,113 @@ export const SystemMap = ({ systemData }: { systemData: SystemMapData }) => {
     }
   }, [systemData]);
 
+  // Find the central star for orbital disk
+  const centralStar = useMemo(() => {
+    if (!objectsMap || Object.keys(objectsMap).length === 0) {
+      return null;
+    }
+    
+    // Find the object with type 'Star'
+    return Object.values(objectsMap).find(isStar) as Star || null;
+  }, [objectsMap]);
+  
+  // Find all planets for orbital disk
+  const planetaryObjects = useMemo(() => {
+    if (!objectsMap || Object.keys(objectsMap).length === 0) {
+      return [];
+    }
+    
+    // Filter for all planets
+    return Object.values(objectsMap).filter(obj => 
+      isPlanet(obj) || isMoon(obj)
+    );
+  }, [objectsMap]);
+  
   // Main rendering function
   const renderCelestialObjects = useCallback(() => {
     if (!objectsMap || Object.keys(objectsMap).length === 0) {
       return null;
     }
     
-    return Object.entries(objectsMap).map(([key, object]) => {
-      // Skip objects that should not be visible based on filters
-      if (
-        (object.type === 'Star' && !visibilityFilters.stars) ||
-        (object.type === 'Planet' && !visibilityFilters.planets) ||
-        (object.type === 'Moon' && !visibilityFilters.moons) ||
-        (object.type === 'JumpPoint' && !visibilityFilters.jumpPoints) ||
-        (object.type === 'LagrangePoint' && !visibilityFilters.lagrangePoints) ||
-        (object.type === 'Station' && !visibilityFilters.stations) ||
-        (object.type === 'LandingZone' && !visibilityFilters.landingZones)
-      ) {
-        return null;
-      }
-      
-      // Determine if the object is selected
-      const isSelected = selectedObject === key;
-      
-      // Render celestial bodies (stars, planets, moons)
-      if (object.type === 'Star' || object.type === 'Planet' || object.type === 'Moon') {
-        return (
-          <CelestialBodyRenderer
-            key={key}
-            object={object}
-            selected={isSelected}
-            scale={1.0}
-            enhancedAtmosphere={enhancedAtmosphere}
-            showLabel={showLabels}
-            onSelect={handleSelectObject}
+    return (
+      <>
+        {/* Render the orbital disk if visible */}
+        {centralStar && visibilityFilters.orbitalDisk && (
+          <OrbitalDiskRenderer
+            centralObject={centralStar}
+            planetaryObjects={planetaryObjects}
+            visible={visibilityFilters.orbitalDisk}
+            color="#225577"
+            opacity={0.1}
+            size={1.2}
           />
-        );
-      }
-      
-      // Render navigation points (jump points, lagrange points, stations, landing zones, comm arrays)
-      return (
-        <NavigationPointRenderer
-          key={key}
-          object={object as JumpPoint | LagrangePoint | Station | LandingZone | CommArray}
-          selected={isSelected}
-          showLabel={showLabels}
-          onSelect={handleSelectObject}
-        />
-      );
-    });
-  }, [objectsMap, visibilityFilters, selectedObject, enhancedAtmosphere, showLabels, handleSelectObject]);
-
-  // Render orbit paths for parent-child relationships
-  const renderOrbitPaths = useCallback(() => {
-    if (!objectsMap || Object.keys(objectsMap).length === 0 || !visibilityFilters.orbitPaths) {
-      return null;
-    }
-
-    const orbitalElements: JSX.Element[] = [];
-
-    // 1. Find the star object(s)
-    const stars = Object.values(objectsMap).filter(obj => obj.type === 'Star');
-    
-    // 2. Get planets orbiting each star and render their orbit paths
-    stars.forEach(star => {
-      // Find planets orbiting this star
-      const childPlanets = Object.values(objectsMap).filter(
-        obj => obj.parent === star.name && obj.type === 'Planet'
-      );
-      
-      orbitalElements.push(
-        <OrbitPathRenderer
-          key={`star-orbits-${star.name}`}
-          parentObject={star as Star}
-          childObjects={childPlanets}
-          visible={visibilityFilters.orbitPaths}
-        />
-      );
-      
-      // 3. For each planet, find moons and render their orbit paths
-      childPlanets.forEach(planet => {
-        const childMoons = Object.values(objectsMap).filter(
-          obj => obj.parent === planet.name && obj.type === 'Moon'
-        );
+        )}
         
-        if (childMoons.length > 0) {
-          orbitalElements.push(
-            <OrbitPathRenderer
-              key={`planet-orbits-${planet.name}`}
-              parentObject={planet as Planet}
-              childObjects={childMoons}
-              visible={visibilityFilters.orbitPaths}
+        {/* Render orbit paths for planets and moons if visible */}
+        {visibilityFilters.orbitPaths && Object.entries(objectsMap).map(([key, object]) => {
+          if ((isPlanet(object) || isMoon(object)) && object.position) {
+            return (
+              <OrbitPathRenderer
+                key={`orbit-${key}`}
+                object={object}
+                objectsMap={objectsMap}
+                visible={visibilityFilters.orbitPaths}
+                color={isPlanet(object) ? "#44aaff" : "#55ccff"}
+                lineWidth={isPlanet(object) ? 1.0 : 0.5}
+                dashed={isMoon(object)}
+              />
+            );
+          }
+          return null;
+        })}
+        
+        {/* Render celestial objects */}
+        {Object.entries(objectsMap).map(([key, object]) => {
+          // Skip objects that should not be visible based on filters
+          if (
+            (object.type === 'Star' && !visibilityFilters.stars) ||
+            (object.type === 'Planet' && !visibilityFilters.planets) ||
+            (object.type === 'Moon' && !visibilityFilters.moons) ||
+            (object.type === 'JumpPoint' && !visibilityFilters.jumpPoints) ||
+            (object.type === 'LagrangePoint' && !visibilityFilters.lagrangePoints) ||
+            (object.type === 'Station' && !visibilityFilters.stations) ||
+            (object.type === 'LandingZone' && !visibilityFilters.landingZones)
+          ) {
+            return null;
+          }
+          
+          // Determine if the object is selected
+          const isSelected = selectedObject === key;
+          
+          // Render celestial bodies (stars, planets, moons)
+          if (object.type === 'Star' || object.type === 'Planet' || object.type === 'Moon') {
+            return (
+              <CelestialBodyRenderer
+                key={key}
+                object={object}
+                selected={isSelected}
+                scale={1.0}
+                enhancedAtmosphere={enhancedAtmosphere}
+                showLabel={showLabels}
+                onSelect={handleSelectObject}
+              />
+            );
+          }
+          
+          // Render navigation points (jump points, lagrange points, stations, landing zones, comm arrays)
+          return (
+            <NavigationPointRenderer
+              key={key}
+              object={object as JumpPoint | LagrangePoint | Station | LandingZone | CommArray}
+              selected={isSelected}
+              showLabel={showLabels}
+              onSelect={handleSelectObject}
             />
           );
-        }
-      });
-    });
-    
-    return orbitalElements;
-  }, [objectsMap, visibilityFilters.orbitPaths]);
+        })}
+      </>
+    );
+  }, [objectsMap, visibilityFilters, selectedObject, enhancedAtmosphere, showLabels, handleSelectObject, centralStar, planetaryObjects]);
 
   // Create the scene with a dark space background and starfield
   const sceneRef = useRef<THREE.Scene>(null);
@@ -409,11 +423,18 @@ export const SystemMap = ({ systemData }: { systemData: SystemMapData }) => {
           ⚡
         </button>
         <button 
+          className={`display-control-btn ${visibilityFilters.orbitalDisk ? 'active' : ''}`}
+          onClick={() => setVisibilityFilters(prev => ({ ...prev, orbitalDisk: !prev.orbitalDisk }))}
+          title="Toggle Orbital Disk"
+        >
+          ◯
+        </button>
+        <button 
           className={`display-control-btn ${visibilityFilters.orbitPaths ? 'active' : ''}`}
           onClick={() => setVisibilityFilters(prev => ({ ...prev, orbitPaths: !prev.orbitPaths }))}
           title="Toggle Orbit Paths"
         >
-          ⚪
+          ⭕
         </button>
         <button 
           className={`display-control-btn ${enhancedAtmosphere ? 'active' : ''}`}
@@ -479,9 +500,6 @@ export const SystemMap = ({ systemData }: { systemData: SystemMapData }) => {
           intensity={1.5} 
           color="#FFF9E0"
         />
-        
-        {/* Render orbit paths */}
-        {renderOrbitPaths()}
         
         {/* Render all celestial objects */}
         {renderCelestialObjects()}

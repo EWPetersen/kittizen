@@ -1,140 +1,96 @@
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import { Line } from '@react-three/drei';
-import { Star, Planet, Moon, BaseCelestialObject } from '../../models/celestialObjects';
+import { BaseCelestialObject, isPlanet, isMoon } from '../../models/celestialObjects';
 
-// Scale factor for visualization
+// Scale constants to match the system scale
 const SYSTEM_SCALE = 1e9;
-// Colors for different orbit types
-const ORBIT_COLORS = {
-  'Planet': '#4080ff', // Blue for planets
-  'Moon': '#40ff80',   // Green for moons
-};
-// Number of points to use for drawing the orbit
-const ORBIT_RESOLUTION = 128;
+const ORBIT_SEGMENTS = 64; // Higher number = smoother orbit paths
 
 interface OrbitPathRendererProps {
-  parentObject: Star | Planet;
-  childObjects: BaseCelestialObject[];
-  visible: boolean;
+  object: BaseCelestialObject;
+  objectsMap: Record<string, BaseCelestialObject>;
+  color?: string;
+  visible?: boolean;
+  lineWidth?: number;
+  dashed?: boolean;
 }
 
-/**
- * Renders orbital paths of celestial bodies around their parent.
- * For planets, this creates circular orbits around the parent star.
- * For moons, this creates circular orbits around their parent planet.
- */
 const OrbitPathRenderer: React.FC<OrbitPathRendererProps> = ({
-  parentObject,
-  childObjects,
-  visible
+  object,
+  objectsMap,
+  color = '#44aaff',
+  visible = true,
+  lineWidth = 1,
+  dashed = false
 }) => {
-  // Filter out objects that don't have position data
-  const objectsWithPosition = useMemo(() => 
-    childObjects.filter(obj => obj.position && (obj.type === 'Planet' || obj.type === 'Moon')),
-  [childObjects]);
-
-  // Create orbital paths
-  const orbitalPaths = useMemo(() => {
-    if (!parentObject.position || !visible || objectsWithPosition.length === 0) {
-      return [];
+  // Calculate orbit path points
+  const orbitPoints = useMemo(() => {
+    // Skip if no position or it's not a planet/moon
+    if (!object.position || (!isPlanet(object) && !isMoon(object))) {
+      return null;
     }
 
-    const parentPosition = new THREE.Vector3(
+    // Get parent object
+    const parentObject = objectsMap[object.parent];
+    if (!parentObject || !parentObject.position) {
+      return null;
+    }
+
+    // Calculate orbit radius (distance from parent to object)
+    const parentPos = new THREE.Vector3(
       parentObject.position.x / SYSTEM_SCALE,
       parentObject.position.y / SYSTEM_SCALE,
       parentObject.position.z / SYSTEM_SCALE
     );
-
-    return objectsWithPosition.map(child => {
-      if (!child.position) return null;
-
-      // Calculate orbit properties
-      const childPosition = new THREE.Vector3(
-        child.position.x / SYSTEM_SCALE,
-        child.position.y / SYSTEM_SCALE,
-        child.position.z / SYSTEM_SCALE
-      );
-
-      // Calculate orbit radius (distance from parent to child)
-      const orbitRadius = childPosition.distanceTo(parentPosition);
+    
+    const objectPos = new THREE.Vector3(
+      object.position.x / SYSTEM_SCALE,
+      object.position.y / SYSTEM_SCALE,
+      object.position.z / SYSTEM_SCALE
+    );
+    
+    // Calculate orbit parameters
+    const radius = objectPos.distanceTo(parentPos);
+    
+    // Create orbit circle
+    const points = [];
+    for (let i = 0; i <= ORBIT_SEGMENTS; i++) {
+      const angle = (i / ORBIT_SEGMENTS) * Math.PI * 2;
       
-      // Project child position to calculate a proper XY plane orbit
-      // We want to retain the distance but primarily place orbits in XY plane
+      // For now, assume orbits are in XY plane with some small Z deviation
+      // Can be refined with actual orbital mechanics if needed
+      const x = parentPos.x + radius * Math.cos(angle);
+      const y = parentPos.y + radius * Math.sin(angle);
       
-      // Step 1: Calculate a vector from parent to child
-      const directionToChild = childPosition.clone().sub(parentPosition).normalize();
+      // Use actual z-height for the object to create slight inclination
+      // We'll use a sinusoidal variation that peaks at the object's actual position
+      const normalizedI = i / ORBIT_SEGMENTS;
+      const zVariation = Math.sin(normalizedI * Math.PI * 2) * (objectPos.z - parentPos.z);
+      const z = parentPos.z + zVariation;
       
-      // Step 2: Calculate a small random tilt (much less than before)
-      // This creates slight variation between orbits but keeps them mostly in XY
-      // Random angle between -0.05 and 0.05 radians (approximately ±3 degrees)
-      const tiltAngle = (Math.random() * 0.1 - 0.05) * (child.type === 'Moon' ? 2 : 1);
-      
-      // Create points for a circular orbit in XY plane with slight tilt
-      const points: THREE.Vector3[] = [];
-      for (let i = 0; i <= ORBIT_RESOLUTION; i++) {
-        const angle = (i / ORBIT_RESOLUTION) * Math.PI * 2;
-        
-        // Create the orbit point primarily in the XY plane
-        const orbitPoint = new THREE.Vector3(
-          Math.cos(angle) * orbitRadius,
-          Math.sin(angle) * orbitRadius * Math.sin(tiltAngle), // Small Y variation
-          Math.sin(angle) * orbitRadius * Math.cos(tiltAngle)  // Primary Z component
-        );
-        
-        // Apply a minimal rotation based on the parent-child vector
-        // This keeps orbits generally aligned but with realistic variation
-        if (child.type === 'Planet') {
-          // For planets, very minimal rotation to keep orbits near the XY plane
-          const rotationAxis = new THREE.Vector3(0, 0, 1);
-          const rotationAngle = 0.05; // Very small angle, about 3 degrees
-          orbitPoint.applyAxisAngle(rotationAxis, rotationAngle);
-        } else {
-          // For moons, slightly more variation is realistic
-          const rotationAxis = new THREE.Vector3(1, 0, 0);
-          const rotationAngle = 0.1; // Small angle, about 6 degrees
-          orbitPoint.applyAxisAngle(rotationAxis, rotationAngle);
-        }
-        
-        // Add the parent position to place the orbit in the correct location
-        orbitPoint.add(parentPosition);
-        points.push(orbitPoint);
-      }
+      points.push(new THREE.Vector3(x, y, z));
+    }
+    
+    return points;
+  }, [object, objectsMap]);
 
-      // Get the appropriate color for this object type
-      const color = ORBIT_COLORS[child.type as 'Planet' | 'Moon'] || '#ffffff';
-
-      return {
-        points,
-        color,
-        objectName: child.name,
-        objectType: child.type
-      };
-    }).filter(Boolean);
-  }, [parentObject, objectsWithPosition, visible]);
-
-  if (!visible || orbitalPaths.length === 0) {
+  // If no valid orbit path could be calculated, don't render anything
+  if (!orbitPoints) {
     return null;
   }
 
   return (
-    <>
-      {orbitalPaths.map((path, index) => (
-        path && (
-          <Line
-            key={`orbit-${path.objectName}-${index}`}
-            points={path.points}
-            color={path.color}
-            lineWidth={1}
-            dashed={path.objectType === 'Moon'} // Dashed lines for moon orbits
-            dashSize={0.5}
-            gapSize={0.25}
-            transparent
-            opacity={0.6}
-          />
-        )
-      ))}
-    </>
+    <Line
+      points={orbitPoints}
+      color={color}
+      lineWidth={lineWidth}
+      dashed={dashed}
+      toneMapped={false}
+      transparent
+      opacity={0.6}
+      visible={visible}
+    />
   );
 };
 
