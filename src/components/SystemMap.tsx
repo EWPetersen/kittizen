@@ -19,6 +19,7 @@ import StantonMapControls from './StantonMapControls';
 import ControlsHelp from './ControlsHelp';
 import CelestialBodyRenderer from './renderers/CelestialBodyRenderer';
 import NavigationPointRenderer from './renderers/NavigationPointRenderer';
+import OrbitPathRenderer from './renderers/OrbitPathRenderer';
 import './SystemMap.css';
 import SystemBrowser from './SystemBrowser';
 import MiniMap from './MiniMap';
@@ -95,6 +96,7 @@ interface VisibilityFilters {
   lagrangePoints: boolean;
   stations: boolean;
   landingZones: boolean;
+  orbitPaths: boolean;
 }
 
 interface SystemMapData {
@@ -156,7 +158,8 @@ export const SystemMap = ({ systemData }: { systemData: SystemMapData }) => {
     jumpPoints: true,
     lagrangePoints: true,
     stations: true,
-    landingZones: true
+    landingZones: true,
+    orbitPaths: true
   });
   
   // Add selected object state
@@ -290,6 +293,55 @@ export const SystemMap = ({ systemData }: { systemData: SystemMapData }) => {
     });
   }, [objectsMap, visibilityFilters, selectedObject, enhancedAtmosphere, showLabels, handleSelectObject]);
 
+  // Render orbit paths for parent-child relationships
+  const renderOrbitPaths = useCallback(() => {
+    if (!objectsMap || Object.keys(objectsMap).length === 0 || !visibilityFilters.orbitPaths) {
+      return null;
+    }
+
+    const orbitalElements: JSX.Element[] = [];
+
+    // 1. Find the star object(s)
+    const stars = Object.values(objectsMap).filter(obj => obj.type === 'Star');
+    
+    // 2. Get planets orbiting each star and render their orbit paths
+    stars.forEach(star => {
+      // Find planets orbiting this star
+      const childPlanets = Object.values(objectsMap).filter(
+        obj => obj.parent === star.name && obj.type === 'Planet'
+      );
+      
+      orbitalElements.push(
+        <OrbitPathRenderer
+          key={`star-orbits-${star.name}`}
+          parentObject={star as Star}
+          childObjects={childPlanets}
+          visible={visibilityFilters.orbitPaths}
+        />
+      );
+      
+      // 3. For each planet, find moons and render their orbit paths
+      childPlanets.forEach(planet => {
+        const childMoons = Object.values(objectsMap).filter(
+          obj => obj.parent === planet.name && obj.type === 'Moon'
+        );
+        
+        if (childMoons.length > 0) {
+          orbitalElements.push(
+            <OrbitPathRenderer
+              key={`planet-orbits-${planet.name}`}
+              parentObject={planet as Planet}
+              childObjects={childMoons}
+              visible={visibilityFilters.orbitPaths}
+            />
+          );
+        }
+      });
+    });
+    
+    return orbitalElements;
+  }, [objectsMap, visibilityFilters.orbitPaths]);
+
   // Create the scene with a dark space background and starfield
   const sceneRef = useRef<THREE.Scene>(null);
   
@@ -357,6 +409,13 @@ export const SystemMap = ({ systemData }: { systemData: SystemMapData }) => {
           ⚡
         </button>
         <button 
+          className={`display-control-btn ${visibilityFilters.orbitPaths ? 'active' : ''}`}
+          onClick={() => setVisibilityFilters(prev => ({ ...prev, orbitPaths: !prev.orbitPaths }))}
+          title="Toggle Orbit Paths"
+        >
+          ⚪
+        </button>
+        <button 
           className={`display-control-btn ${enhancedAtmosphere ? 'active' : ''}`}
           onClick={() => setEnhancedAtmosphere(!enhancedAtmosphere)}
           title="Toggle Enhanced Atmosphere"
@@ -420,6 +479,9 @@ export const SystemMap = ({ systemData }: { systemData: SystemMapData }) => {
           intensity={1.5} 
           color="#FFF9E0"
         />
+        
+        {/* Render orbit paths */}
+        {renderOrbitPaths()}
         
         {/* Render all celestial objects */}
         {renderCelestialObjects()}
