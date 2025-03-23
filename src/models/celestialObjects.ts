@@ -60,7 +60,7 @@ export interface BaseCelestialObject {
   /** Parent object name reference */
   parent: string;
   /** Position in 3D space */
-  position: Position;
+  position?: Position;
   /** Rotation quaternion */
   rotation: Rotation;
   /** Size/radius in meters */

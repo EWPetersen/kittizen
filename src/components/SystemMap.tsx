@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, Stars, PerspectiveCamera } from '@react-three/drei';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Canvas, useThree, RootState } from '@react-three/fiber';
+import { Stars, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { 
-  StantonSystemMap, 
+  StantonSystemMap,
   BaseCelestialObject,
   Star,
   Planet,
@@ -12,11 +12,76 @@ import {
   LagrangePoint,
   Station,
   LandingZone,
-  CelestialObjectType
+  CelestialObjectType,
+  CommArray
 } from '../models/celestialObjects';
-import ObjectManager from './ObjectManager';
-import ObjectDetails from './ObjectDetails';
+import StantonMapControls from './StantonMapControls';
+import ControlsHelp from './ControlsHelp';
+import CelestialBodyRenderer from './renderers/CelestialBodyRenderer';
+import NavigationPointRenderer from './renderers/NavigationPointRenderer';
 import './SystemMap.css';
+import SystemBrowser from './SystemBrowser';
+import MiniMap from './MiniMap';
+import CameraSystem from './CameraSystem';
+
+// Space background component for a more immersive environment
+const SpaceBackground = () => {
+  // Create a buffer for particle positions
+  const particlePositions = useMemo(() => {
+    const positions = new Float32Array(6000);
+    for (let i = 0; i < positions.length; i += 3) {
+      positions[i] = (Math.random() - 0.5) * 10000;
+      positions[i + 1] = (Math.random() - 0.5) * 10000;
+      positions[i + 2] = (Math.random() - 0.5) * 10000;
+    }
+    return positions;
+  }, []);
+  
+  return (
+    <>
+      {/* Background stars with beautiful twinkle effect */}
+      <Stars 
+        radius={90000} 
+        depth={50} 
+        count={5000} 
+        factor={4} 
+        saturation={0.5} 
+        fade
+        speed={0.5}
+      />
+      
+      {/* Distant nebula effect using a large sphere with inside-facing normals */}
+      <mesh>
+        <sphereGeometry args={[50000, 32, 32]} />
+        <meshBasicMaterial 
+          color="#050510"
+          side={THREE.BackSide}
+          transparent
+          opacity={0.8}
+        />
+      </mesh>
+      
+      {/* Ambient dust particles for added depth */}
+      <points>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            count={2000}
+            array={particlePositions}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <pointsMaterial 
+          size={3} 
+          color="#556677" 
+          transparent 
+          opacity={0.2} 
+          sizeAttenuation 
+        />
+      </points>
+    </>
+  );
+};
 
 // Distance scale for the visualization
 const GM_SCALE = 1e9;
@@ -30,11 +95,6 @@ interface VisibilityFilters {
   lagrangePoints: boolean;
   stations: boolean;
   landingZones: boolean;
-}
-
-interface CameraController {
-  targetObject?: string;
-  resetView: () => void;
 }
 
 interface SystemMapData {
@@ -82,14 +142,14 @@ export const SystemMap = ({ systemData }: { systemData: SystemMapData }) => {
   // Convert system data to the expected format for the components
   const [objectsMap, setObjectsMap] = useState<StantonSystemMap>({});
   
-  // Selected object state
-  const [selectedObject, setSelectedObject] = useState<string | null>(null);
+  // Help overlay state
+  const [showHelp, setShowHelp] = useState<boolean>(false);
   
-  // Camera control
-  const cameraControllerRef = useRef<CameraController | null>(null);
+  // Device type detection
+  const [deviceType, setDeviceType] = useState<'desktop' | 'mobile' | 'tablet'>('desktop');
   
-  // Visibility filters with default values
-  const [filters, setFilters] = useState<VisibilityFilters>({
+  // Add visibility filters state
+  const [visibilityFilters, setVisibilityFilters] = useState<VisibilityFilters>({
     stars: true,
     planets: true,
     moons: true,
@@ -98,24 +158,56 @@ export const SystemMap = ({ systemData }: { systemData: SystemMapData }) => {
     stations: true,
     landingZones: true
   });
-
-  const [showLabels, setShowLabels] = useState(true);
-  const [showOrbitalMarkers, setShowOrbitalMarkers] = useState(true);
-  const [actualScale, setActualScale] = useState(false);
-  const [enhancedAtmosphere, setEnhancedAtmosphere] = useState(true);
-
-  // Zoom threshold levels for different object types
-  const zoomLevels = useMemo(() => ({
-    stars: 0, // Always visible
-    planets: 0, // Always visible
-    moons: 0.3,
-    jumpPoints: 0.4,
-    lagrangePoints: 0.5,
-    stations: 0.6,
-    landingZones: 0.7,
-    labels: 0.2
-  }), []);
-
+  
+  // Add selected object state
+  const [selectedObject, setSelectedObject] = useState<string | null>(null);
+  
+  // Add enhanced atmosphere state
+  const [enhancedAtmosphere, setEnhancedAtmosphere] = useState<boolean>(true);
+  
+  // Add labels visible state
+  const [showLabels, setShowLabels] = useState<boolean>(true);
+  
+  // Add camera position state
+  const [cameraPosition, setCameraPosition] = useState<THREE.Vector3 | null>(null);
+  
+  // Handle object selection
+  const handleSelectObject = useCallback((objectName: string) => {
+    setSelectedObject(prev => prev === objectName ? null : objectName);
+  }, []);
+  
+  // Keyboard event handling
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Toggle help with ? key or H key
+    if (e.key === '?' || e.key === 'h' || e.key === 'H') {
+      setShowHelp(prev => !prev);
+    }
+  }, []);
+  
+  // Device type detection
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      if (width < 768) {
+        setDeviceType('mobile');
+      } else if (width < 1024) {
+        setDeviceType('tablet');
+      } else {
+        setDeviceType('desktop');
+      }
+    };
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  // Keyboard event listeners
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+  
   // Process the system data into a map keyed by object names
   useEffect(() => {
     if (systemData) {
@@ -138,6 +230,8 @@ export const SystemMap = ({ systemData }: { systemData: SystemMapData }) => {
           map[key] = obj as Station;
         } else if (obj.type === 'LandingZone') {
           map[key] = obj as LandingZone;
+        } else if (obj.type === 'CommArray') {
+          map[key] = obj as CommArray;
         }
       });
       
@@ -145,246 +239,204 @@ export const SystemMap = ({ systemData }: { systemData: SystemMapData }) => {
     }
   }, [systemData]);
 
-  // Handle filter changes
-  const toggleFilter = (filterName: keyof VisibilityFilters) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterName]: !prev[filterName]
-    }));
-  };
-
-  // Handle special toggles
-  const toggleLabels = () => setShowLabels(prev => !prev);
-  const toggleOrbitalMarkers = () => setShowOrbitalMarkers(prev => !prev);
-  const toggleActualScale = () => setActualScale(prev => !prev);
-  const toggleEnhancedAtmosphere = () => setEnhancedAtmosphere(prev => !prev);
-
-  // Handle object selection
-  const handleObjectSelect = (objectName: string | null) => {
-    setSelectedObject(objectName);
-    
-    // Focus camera on selected object
-    if (objectName && cameraControllerRef.current) {
-      cameraControllerRef.current.targetObject = objectName;
+  // Main rendering function
+  const renderCelestialObjects = useCallback(() => {
+    if (!objectsMap || Object.keys(objectsMap).length === 0) {
+      return null;
     }
-  };
-
-  // Camera controller component
-  const CameraControls = () => {
-    const { camera, gl } = useThree();
-    const controlsRef = useRef<any>();
-    const [zoomLevel, setZoomLevel] = useState(0);
     
-    useEffect(() => {
-      cameraControllerRef.current = {
-        targetObject: undefined,
-        resetView: () => {
-          if (controlsRef.current) {
-            controlsRef.current.reset();
-          }
-        }
-      };
-      
-      return () => {
-        cameraControllerRef.current = null;
-      };
-    }, []);
-    
-    useEffect(() => {
-      if (cameraControllerRef.current?.targetObject && objectsMap[cameraControllerRef.current.targetObject]) {
-        const target = objectsMap[cameraControllerRef.current.targetObject]!;
-        const position = new THREE.Vector3(
-          target.position.x / GM_SCALE,
-          target.position.y / GM_SCALE,
-          target.position.z / GM_SCALE
-        );
-        
-        controlsRef.current.target.copy(position);
-        
-        // Adjust camera position based on object size
-        const objectSize = target.size || 1000;  // Default size if size not available
-        const distance = objectSize * 3;  // Position camera 3x the object's radius away
-        
-        const cameraOffset = new THREE.Vector3(distance, distance, distance).normalize().multiplyScalar(distance);
-        camera.position.copy(position).add(cameraOffset);
-        
-        controlsRef.current.update();
+    return Object.entries(objectsMap).map(([key, object]) => {
+      // Skip objects that should not be visible based on filters
+      if (
+        (object.type === 'Star' && !visibilityFilters.stars) ||
+        (object.type === 'Planet' && !visibilityFilters.planets) ||
+        (object.type === 'Moon' && !visibilityFilters.moons) ||
+        (object.type === 'JumpPoint' && !visibilityFilters.jumpPoints) ||
+        (object.type === 'LagrangePoint' && !visibilityFilters.lagrangePoints) ||
+        (object.type === 'Station' && !visibilityFilters.stations) ||
+        (object.type === 'LandingZone' && !visibilityFilters.landingZones)
+      ) {
+        return null;
       }
-    }, [camera, selectedObject, objectsMap]);
-    
-    return (
-      <OrbitControls
-        ref={controlsRef}
-        args={[camera, gl.domElement]}
-        enableDamping
-        dampingFactor={0.05}
-        rotateSpeed={0.5}
-        zoomSpeed={0.5}
-        panSpeed={0.5}
-        minDistance={0.01}
-        maxDistance={2000}
-        onChange={() => {
-          // Calculate zoom level based on camera distance
-          const distance = camera.position.distanceTo(controlsRef.current.target);
-          const normalizedZoom = 1 - Math.min(1, Math.max(0, distance / 1000));
-          setZoomLevel(normalizedZoom);
-        }}
-      />
-    );
-  };
+      
+      // Determine if the object is selected
+      const isSelected = selectedObject === key;
+      
+      // Render celestial bodies (stars, planets, moons)
+      if (object.type === 'Star' || object.type === 'Planet' || object.type === 'Moon') {
+        return (
+          <CelestialBodyRenderer
+            key={key}
+            object={object}
+            selected={isSelected}
+            scale={1.0}
+            enhancedAtmosphere={enhancedAtmosphere}
+            showLabel={showLabels}
+            onSelect={handleSelectObject}
+          />
+        );
+      }
+      
+      // Render navigation points (jump points, lagrange points, stations, landing zones, comm arrays)
+      return (
+        <NavigationPointRenderer
+          key={key}
+          object={object as JumpPoint | LagrangePoint | Station | LandingZone | CommArray}
+          selected={isSelected}
+          showLabel={showLabels}
+          onSelect={handleSelectObject}
+        />
+      );
+    });
+  }, [objectsMap, visibilityFilters, selectedObject, enhancedAtmosphere, showLabels, handleSelectObject]);
 
+  // Create the scene with a dark space background and starfield
+  const sceneRef = useRef<THREE.Scene>(null);
+  
+  // The core Three.js scene
   return (
     <div className="system-map-container">
-      <div className="controls-panel">
-        <h2>Stanton System Explorer</h2>
-        <div className="filter-controls">
-          <h3>Visibility Filters</h3>
-          <div className="filter-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={filters.stars}
-                onChange={() => toggleFilter('stars')}
-              />
-              Stars
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={filters.planets}
-                onChange={() => toggleFilter('planets')}
-              />
-              Planets
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={filters.moons}
-                onChange={() => toggleFilter('moons')}
-              />
-              Moons
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={filters.jumpPoints}
-                onChange={() => toggleFilter('jumpPoints')}
-              />
-              Jump Points
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={filters.lagrangePoints}
-                onChange={() => toggleFilter('lagrangePoints')}
-              />
-              Lagrange Points
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={filters.stations}
-                onChange={() => toggleFilter('stations')}
-              />
-              Stations
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={filters.landingZones}
-                onChange={() => toggleFilter('landingZones')}
-              />
-              Landing Zones
-            </label>
-          </div>
-          <div className="filter-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={showOrbitalMarkers}
-                onChange={toggleOrbitalMarkers}
-              />
-              Orbital Markers
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={showLabels}
-                onChange={toggleLabels}
-              />
-              Labels
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={actualScale}
-                onChange={toggleActualScale}
-              />
-              Actual Scale
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={enhancedAtmosphere}
-                onChange={toggleEnhancedAtmosphere}
-              />
-              Enhanced Atmosphere
-            </label>
-          </div>
-        </div>
-        <div className="view-controls">
-          <h3>View Controls</h3>
-          <button onClick={() => cameraControllerRef.current?.resetView()}>
-            Reset View
-          </button>
-          <button onClick={() => handleObjectSelect(null)}>
-            Clear Selection
-          </button>
-        </div>
-      </div>
-      
-      <div className="canvas-container">
-        <Canvas
-          shadows
-          gl={{ alpha: false, antialias: true }}
-          camera={{ position: [0, 30, 100], fov: 60 }}
-        >
-          <fog attach="fog" args={['#000', 100, 1000]} />
-          <color attach="background" args={['#000']} />
-          
-          <CameraControls />
-          <Stars radius={200} depth={50} count={5000} factor={4} saturation={0} fade speed={0.5} />
-          
-          <ambientLight intensity={0.1} />
-          <directionalLight
-            position={[0, 0, 0]}
-            intensity={1}
-            castShadow
-            shadow-mapSize-width={2048}
-            shadow-mapSize-height={2048}
-          />
-          
-          <ObjectManager
-            objects={objectsMap}
-            selectedObjectName={selectedObject || ''}
-            onSelectObject={(name: string) => handleObjectSelect(name)}
-            showLabels={showLabels}
-            actualScale={actualScale}
-            enhancedAtmosphere={enhancedAtmosphere}
-            visibilityFilters={filters}
-            zoomLevel={0.5} // This will be updated by the CameraControls
-          />
-        </Canvas>
-      </div>
-      
-      {selectedObject && (
-        <ObjectDetails
-          selectedObjectName={selectedObject}
-          objects={objectsMap}
-          onClose={() => setSelectedObject(null)}
-          onSelectObject={(name: string) => handleObjectSelect(name)}
+      {/* System browser (positioned via CSS) - Now outside Canvas */}
+      <div style={{ pointerEvents: 'auto' }}>
+        <SystemBrowser 
+          objectsMap={objectsMap}
+          selectedObject={selectedObject}
+          onSelectObject={(objectName: string | null) => {
+            if (objectName) {
+              handleSelectObject(objectName);
+            }
+          }}
         />
+      </div>
+      
+      {/* MiniMap (positioned via CSS) - Now outside Canvas */}
+      <div style={{ pointerEvents: 'auto' }}>
+        <MiniMap 
+          objectsMap={objectsMap}
+          selectedObject={selectedObject}
+          onSelectObject={(objectName: string) => handleSelectObject(objectName)}
+          cameraPosition={cameraPosition ? cameraPosition : { x: 0, y: 0, z: 0 }}
+        />
+      </div>
+      
+      {/* Controls for toggling visibility - Now outside Canvas */}
+      <div className="display-controls" style={{ pointerEvents: 'auto' }}>
+        <button 
+          className={`display-control-btn ${visibilityFilters.stars ? 'active' : ''}`}
+          onClick={() => setVisibilityFilters(prev => ({ ...prev, stars: !prev.stars }))}
+          title="Toggle Stars"
+        >
+          ★
+        </button>
+        <button 
+          className={`display-control-btn ${visibilityFilters.planets ? 'active' : ''}`}
+          onClick={() => setVisibilityFilters(prev => ({ ...prev, planets: !prev.planets }))}
+          title="Toggle Planets"
+        >
+          🪐
+        </button>
+        <button 
+          className={`display-control-btn ${visibilityFilters.moons ? 'active' : ''}`}
+          onClick={() => setVisibilityFilters(prev => ({ ...prev, moons: !prev.moons }))}
+          title="Toggle Moons"
+        >
+          🌙
+        </button>
+        <button 
+          className={`display-control-btn ${visibilityFilters.stations ? 'active' : ''}`}
+          onClick={() => setVisibilityFilters(prev => ({ ...prev, stations: !prev.stations }))}
+          title="Toggle Stations"
+        >
+          🛰️
+        </button>
+        <button 
+          className={`display-control-btn ${visibilityFilters.jumpPoints ? 'active' : ''}`}
+          onClick={() => setVisibilityFilters(prev => ({ ...prev, jumpPoints: !prev.jumpPoints }))}
+          title="Toggle Jump Points"
+        >
+          ⚡
+        </button>
+        <button 
+          className={`display-control-btn ${enhancedAtmosphere ? 'active' : ''}`}
+          onClick={() => setEnhancedAtmosphere(!enhancedAtmosphere)}
+          title="Toggle Enhanced Atmosphere"
+        >
+          🌐
+        </button>
+        <button 
+          className={`display-control-btn ${showLabels ? 'active' : ''}`}
+          onClick={() => setShowLabels(!showLabels)}
+          title="Toggle Labels"
+        >
+          🏷️
+        </button>
+      </div>
+      
+      {/* Help toggle button in the UI */}
+      {!showHelp && (
+        <div 
+          className="help-button"
+          onClick={() => setShowHelp(true)}
+          title="Show Controls Help"
+        >
+          ?
+        </div>
       )}
+      
+      <Canvas 
+        gl={{ 
+          antialias: true,
+          logarithmicDepthBuffer: true // Important for handling the extreme scale differences
+        }}
+        shadows
+        dpr={[1, 2]} // Responsive to device pixel ratio
+        camera={{ 
+          position: [0, 0, 2000],
+          fov: 60,
+          near: 0.1,
+          far: 100000
+        }}
+        onCreated={(state: RootState) => {
+          // Store camera position for the MiniMap
+          setCameraPosition(state.camera.position);
+          
+          // Set up camera position change listener
+          const unsubscribe = state.gl.render.bind(state.gl);
+          state.gl.render = (...args) => {
+            setCameraPosition(state.camera.position);
+            return unsubscribe(...args);
+          };
+        }}
+      >
+        {/* Enhanced space background */}
+        <SpaceBackground />
+        
+        {/* Ambient light to provide base illumination */}
+        <ambientLight intensity={0.1} />
+        
+        {/* Main directional light from the star */}
+        <directionalLight 
+          position={[0, 0, 0]} 
+          intensity={1.5} 
+          color="#FFF9E0"
+        />
+        
+        {/* Render all celestial objects */}
+        {renderCelestialObjects()}
+        
+        {/* CameraSystem (only the camera controls should be inside the Canvas) */}
+        <CameraSystem 
+          objectsMap={objectsMap}
+          selectedObject={selectedObject}
+        />
+      </Canvas>
+      
+      {/* Help overlay */}
+      <ControlsHelp 
+        isVisible={showHelp}
+        onClose={() => setShowHelp(false)}
+        deviceType={deviceType}
+      />
     </div>
   );
 };
