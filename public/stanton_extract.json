@@ -2359,15 +2359,6 @@
     "system_entity_name": "ooc_securitypostkareah",
     "type": "Station"
   },
-  "station_security_stanton4_l1_S4_L1_SecurityDockStation": {
-    "arrivalRadius": 4000.0,
-    "display_name": "Security Dock Station",
-    "name": "station_security_stanton4_l1_S4_L1_SecurityDockStation",
-    "obstructionRadius": 1000.0,
-    "parent": "stanton4_l1",
-    "size": 2200.0,
-    "type": "Station"
-  },
   "station_shippinghub_stanton2b_CovalexShippingHub": {
     "arrivalRadius": 4000.0,
     "atmoHeight": 0.0,

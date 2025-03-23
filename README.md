@@ -1,74 +1,109 @@
-# SCUMaps - Star Citizen Stanton Map
+# Star Citizen Universe Map
 
-A Progressive Web Application for visualizing the Star Citizen's Stanton system in 3D with user-created alert functionality.
+An interactive 3D map for exploring the Stanton system from Star Citizen.
 
 ## Features
 
-- 3D visualization of the Stanton system using Three.js and React Three Fiber
-- Interactive celestial bodies with information display
-- User-created alerts for locations in the system
-- Filter system objects by type (stars, planets, moons, stations, points of interest)
-- Progressive Web App capabilities for offline access
-- Firebase integration for authentication and data storage
+- Interactive 3D visualization of the Stanton system
+- Advanced camera controls with smooth navigation
+- Hierarchical browser for celestial objects
+- Detailed information panels for planets, moons, stations, and more
+- Minimap for navigation assistance
+- Responsive design with support for desktop, tablet, and mobile devices
+- Surface visualization with atmosphere effects
+- Focus mode for detailed exploration of specific objects
 
-## Technologies Used
+## Getting Started
 
-- React with TypeScript
-- Three.js with React Three Fiber for 3D rendering
-- Tailwind CSS for styling
-- Firebase for backend services
-- Vite for fast development and building
-- SWC for speedy TypeScript compilation
+### Prerequisites
 
-## Installation
+- Node.js 14.x or higher
+- npm 6.x or higher
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/scumaps.git
-cd scumaps
+### Installation
+
+1. Clone the repository
+   ```
+   git clone https://github.com/yourusername/star-citizen-universe-map.git
+   cd star-citizen-universe-map
+   ```
+
+2. Install dependencies
+   ```
+   npm install
+   ```
+
+3. Add required texture assets
+   - Download space cubemap textures and place them in the `public/textures/space_cubemap/` directory
+   - Ensure the following files are present:
+     - px.jpg, nx.jpg (positive/negative X axis)
+     - py.jpg, ny.jpg (positive/negative Y axis)
+     - pz.jpg, nz.jpg (positive/negative Z axis)
+
+4. Start the development server
+   ```
+   npm run dev
+   ```
+
+## Project Structure
+
+```
+src/
+  ├── components/           # React components
+  │   ├── CameraSystem.tsx  # Advanced camera control system
+  │   ├── ControlsHelp.tsx  # Help overlay for controls
+  │   ├── MiniMap.tsx       # Navigation minimap
+  │   ├── StantonMapControls.tsx # Main controls component
+  │   ├── SystemBrowser.tsx # Hierarchical system browser
+  │   ├── SystemMap.tsx     # Main map component
+  │   └── renderers/        # Specialized renderers
+  │       ├── CelestialBodyRenderer.tsx # Renderer for stars, planets, moons
+  │       └── NavigationPointRenderer.tsx # Renderer for stations, jump points, etc.
+  ├── models/               # TypeScript interfaces and data models
+  │   └── celestialObjects.ts # Object type definitions
+  ├── styles/               # Global styles
+  └── utils/                # Utility functions
+public/
+  └── textures/             # Texture assets
+      └── space_cubemap/    # Space environment cubemap textures
 ```
 
-2. Install dependencies:
-```bash
-npm install
-```
+## Controls
 
-3. Create a Firebase project and add your Firebase configuration to `.env` file:
-```
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
-```
+### Desktop Controls
+- Left Mouse Button + Drag: Rotate camera
+- Right Mouse Button + Drag: Pan camera
+- Mouse Wheel: Zoom in/out
+- Middle Mouse Button: Reset view
+- Double-click on object: Focus on object
+- Shift + Mouse Wheel: Faster zoom
+- Ctrl + Mouse Wheel: Slower, more precise zoom
 
-4. Run the development server:
-```bash
-npm run dev
-```
+### Mobile Controls
+- One finger drag: Rotate camera
+- Two finger drag: Pan camera
+- Pinch: Zoom in/out
+- Double-tap: Focus on object
+- Three finger tap: Reset view
 
-## Building for Production
+### Keyboard Controls
+- Arrow Keys: Rotate camera
+- WASD: Pan camera
+- Q/E: Zoom in/out
+- R: Reset view
+- F: Focus on selected object
+- Space: Toggle focus mode
+- H or ?: Toggle help overlay
 
-To create a production build:
+## Contributing
 
-```bash
-npm run build
-```
-
-The built files will be in the `dist` directory.
-
-## Usage
-
-- Navigate the 3D map using mouse controls:
-  - Left click + drag to rotate
-  - Right click + drag to pan
-  - Scroll to zoom
-- Click on celestial bodies to select them and view details
-- Use the filter buttons in the navbar to show specific types of objects
-- Create alerts for specific locations that can be public or private
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-ISC
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Star Citizen and all related content is property of Cloud Imperium Games
+- This is a fan project and is not affiliated with Cloud Imperium Games
