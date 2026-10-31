@@ -13,7 +13,7 @@ class handler(server.Handler):
         endpoint = query.pop('endpoint', [])
         if len(endpoint) != 1 or endpoint[0] not in {
             'me','status','auth-config','profile','reports','routes','routes/delete',
-            'register','login','logout','google','vote','plan','presence'
+            'register','login','logout','google','vote','plan','presence','workspace'
         }:
             self.reply({'error':'Not found'},404)
             return False

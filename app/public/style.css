@@ -536,3 +536,5 @@ a{color:var(--cyan)}dialog{border-color:#63718b}dialog li{line-height:1.5;margin
 .wormhole-tunnel{position:absolute;inset:-60%;background:repeating-radial-gradient(ellipse at center,transparent 0 24px,#96ecff80 26px,#d8a3e850 29px,transparent 34px 64px);animation:wormhole-flight 760ms cubic-bezier(.25,.05,.65,1) both;transform-origin:center;filter:blur(1px)}
 @keyframes wormhole-flight{from{transform:perspective(350px) rotateZ(-12deg) scale(.3);opacity:.2}to{transform:perspective(350px) rotateZ(8deg) scale(2.8);opacity:.9}}
 @media(prefers-reduced-motion:reduce){.wormhole-tunnel{animation:none}}
+
+.workspace-link{font-size:11px;color:#f3a0cf;white-space:nowrap;margin-left:14px}@media(max-width:700px){.workspace-link span{display:none}.workspace-link{margin-left:4px}}

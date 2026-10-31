@@ -26,5 +26,13 @@ def verify(root=ROOT):
             raise ValueError('Missing map texture')
         if body.get('model') and not (root/'public'/body['model']).is_file():
             raise ValueError('Missing map model')
+    if (root/'public/v2-catalog.json').exists():
+        pointer=json.loads((root/'public/v2-catalog.json').read_text())
+        base=(root/'public'/pointer['base'].lstrip('/')).resolve()
+        if not base.is_relative_to((root/'public/game-assets/v2').resolve()):raise ValueError('Invalid V2 asset base')
+        index=json.loads((base/'index.json').read_text())
+        for item in index['items']:
+            if not (base/('detail-'+item['id'][:2]+'.json')).is_file():raise ValueError('Missing V2 detail bundle')
+            if item.get('image') and not (base/item['image']).is_file():raise ValueError('Missing V2 image')
     return len(manifest)
 if __name__=='__main__': print('Verified',verify(),'deployment files; no local database or secrets included.')

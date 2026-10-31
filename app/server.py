@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import urlsplit, parse_qs
 from routing import plan_route, route_position
 import database
+import workspace
 
 ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get("KITTIZEN_DB", ROOT / "storage/kittizen.sqlite"))
@@ -121,6 +122,7 @@ def init():
         CREATE TABLE IF NOT EXISTS identities(subject TEXT PRIMARY KEY,user TEXT UNIQUE REFERENCES users(id));
         CREATE TABLE IF NOT EXISTS auth_challenges(nonce TEXT PRIMARY KEY,expires REAL);
         CREATE TABLE IF NOT EXISTS presence(viewer TEXT PRIMARY KEY,shard TEXT,system TEXT,seen REAL);
+        CREATE TABLE IF NOT EXISTS workspaces(user TEXT PRIMARY KEY REFERENCES users(id),payload TEXT,updated REAL);
         CREATE TABLE IF NOT EXISTS routes(id TEXT PRIMARY KEY,user TEXT REFERENCES users(id),name TEXT,origin TEXT,destination TEXT,created REAL);
         """)
         columns = {r["name"] for r in db.execute("PRAGMA table_info(reports)")}
@@ -141,6 +143,16 @@ def ensure_presence_schema():
         db.execute('CREATE TABLE IF NOT EXISTS presence(viewer TEXT PRIMARY KEY,shard TEXT,system TEXT,seen DOUBLE PRECISION)')
         db.execute('ALTER TABLE presence ENABLE ROW LEVEL SECURITY')
         db.execute('REVOKE ALL ON presence FROM PUBLIC')
+
+
+@lru_cache(maxsize=1)
+def ensure_workspace_schema():
+    if not os.environ.get('KITTIZEN_DATABASE_URL'):return
+    with connect() as db:
+        db.execute('SELECT pg_advisory_xact_lock(731908179)')
+        db.execute('CREATE TABLE IF NOT EXISTS workspaces(user TEXT PRIMARY KEY REFERENCES users(id),payload TEXT,updated DOUBLE PRECISION)')
+        db.execute('ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY')
+        db.execute('REVOKE ALL ON workspaces FROM PUBLIC')
 
 
 def trust(db, uid, now=None):
@@ -336,6 +348,11 @@ class Handler(BaseHTTPRequestHandler):
                         handle = text(parse_qs(url.query).get("handle", [u["handle"] if u else ""])[0],24)
                         result = profile(db,handle,u)
                         return self.reply(result if result else {"error":"Pilot not found"},200 if result else 404)
+                    if url.path == '/api/workspace':
+                        if not u:return self.reply({'error':'Sign in to access your private workspace'},401)
+                        ensure_workspace_schema()
+                        row=db.execute('SELECT payload FROM workspaces WHERE user=?',(u['id'],)).fetchone()
+                        return self.reply(json.loads(row['payload']) if row else dict(fleet=[],loadouts=[],offers=[]))
                     if url.path == "/api/me":
                         return self.reply(
                             dict(
@@ -451,7 +468,7 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
                 return self.reply({"error": "JSON required"}, 415)
             size = int(self.headers.get("Content-Length", "0"))
-            if not 0 < size <= 8192:
+            if not 0 < size <= (65536 if urlsplit(self.path).path=='/api/workspace' else 8192):
                 return self.reply({"error": "Request too large"}, 413)
             d = json.loads(self.rfile.read(size))
             path = urlsplit(self.path).path
@@ -552,6 +569,11 @@ class Handler(BaseHTTPRequestHandler):
                             )
                         )
                     return self.reply({"error": "Sign in to contribute"}, 401)
+                if path == '/api/workspace':
+                    clean=workspace.validate(d)
+                    ensure_workspace_schema()
+                    db.execute('INSERT INTO workspaces VALUES(?,?,?) ON CONFLICT(user) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',(u['id'],json.dumps(clean,allow_nan=False),now))
+                    return self.reply({'ok':True})
                 if path == "/api/profile":
                     handle = text(d.get("handle"),24)
                     if not re.fullmatch(r"[A-Za-z0-9_-]{3,24}",handle):

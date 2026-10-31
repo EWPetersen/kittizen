@@ -228,6 +228,9 @@ def main():
     while True:
         try:
             update(a.game, a.force)
+            if (ROOT/'public/v2-catalog.json').exists():
+                from build_v2_catalog import run as update_v2
+                update_v2(a.game,a.force)
             a.force = False
         except (OSError, ValueError, struct.error, ET.ParseError, ImportError) as e:
             print(f"Update failed; last good catalogue retained: {e}", flush=True)

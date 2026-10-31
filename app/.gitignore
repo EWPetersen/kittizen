@@ -18,3 +18,5 @@ preview*.jpg
 *.sqlite*
 
 public/catalog.json
+public/v2-catalog.json
+.vercel
