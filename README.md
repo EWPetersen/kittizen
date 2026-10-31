@@ -1,54 +1,27 @@
-# React + TypeScript + Vite
+# Kittizen
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Community shard intelligence for Star Citizen: report pirate/interdiction activity, verify sightings, and plan routes across Stanton, Pyro and Nyx.
 
-Currently, two official plugins are available:
+The maintained implementation is in **[app/](app/README.md)**. The older Vite/React scaffold remains at the repository root for reference; the current app does not use that frontend build.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Run locally
 
-## Expanding the ESLint configuration
+From the repository root in PowerShell:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```powershell
+.\app\start.ps1
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open http://127.0.0.1:8077. Python is required; `start.ps1` also recognizes the bundled Codex runtime on this development computer. Local accounts and reports use an ignored SQLite database.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Generated navigation data, game textures and raw game files are excluded from this public source repository. Before running a fresh clone, follow [the game extraction setup](app/README.md) against your installed Star Citizen files to generate `app/public/catalog.json` and its textures. The local working copy and locally prepared deployment package already contain them. Creating a hosted upload package requires these generated files.
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+## Hosting and testing
+
+- [Current features, limitations and Google sign-in setup](app/README.md)
+- [Vercel + Supabase deployment instructions](app/deployment/README.md)
+- [Verification notes](app/VERIFICATION.md)
+
+Run `.\app\test.ps1` for the local suite. The complete suite's deployment-package check requires the generated textures. Hosted Postgres and Google sign-in are optional; neither is enabled by cloning this repository. Keep database credentials in environment settings, outside Git.
+
+This is a community prototype and is not affiliated with Cloud Imperium Games or Roberts Space Industries.

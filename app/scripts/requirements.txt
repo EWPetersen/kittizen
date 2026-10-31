@@ -1,0 +1,3 @@
+# Extraction only; server has no third-party dependencies.
+zstandard==0.25.0
+Pillow==12.0.0

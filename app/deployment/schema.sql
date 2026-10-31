@@ -1,0 +1,25 @@
+-- Dedicated schema keeps these tables outside Supabase's public Data API.
+CREATE SCHEMA IF NOT EXISTS kittizen;
+REVOKE ALL ON SCHEMA kittizen FROM PUBLIC;
+SET search_path TO kittizen, pg_catalog;
+CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,handle TEXT NOT NULL,salt TEXT,password TEXT,created DOUBLE PRECISION NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS users_handle_lower ON users(LOWER(handle));
+CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,"user" TEXT REFERENCES users(id),expires DOUBLE PRECISION);
+CREATE TABLE IF NOT EXISTS reports(id TEXT PRIMARY KEY,"user" TEXT REFERENCES users(id),shard TEXT,kind TEXT,notes TEXT,location TEXT,position TEXT,route TEXT,created DOUBLE PRECISION,system TEXT DEFAULT 'stanton',location_id TEXT);
+CREATE INDEX IF NOT EXISTS reports_shard ON reports(shard,created);
+CREATE INDEX IF NOT EXISTS reports_author ON reports("user",created);
+CREATE TABLE IF NOT EXISTS votes(report TEXT REFERENCES reports(id),"user" TEXT REFERENCES users(id),value INTEGER CHECK(value IN (-1,1)),created DOUBLE PRECISION,PRIMARY KEY(report,"user"));
+CREATE TABLE IF NOT EXISTS identities(subject TEXT PRIMARY KEY,"user" TEXT UNIQUE REFERENCES users(id));
+CREATE TABLE IF NOT EXISTS auth_challenges(nonce TEXT PRIMARY KEY,expires DOUBLE PRECISION);
+CREATE TABLE IF NOT EXISTS routes(id TEXT PRIMARY KEY,"user" TEXT REFERENCES users(id),name TEXT,origin TEXT,destination TEXT,created DOUBLE PRECISION);
+CREATE INDEX IF NOT EXISTS routes_author ON routes("user");
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE votes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE identities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE auth_challenges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE routes ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON ALL TABLES IN SCHEMA kittizen FROM PUBLIC;
+CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY);
+INSERT INTO schema_migrations VALUES(1) ON CONFLICT DO NOTHING;

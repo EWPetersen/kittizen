@@ -1,0 +1,17 @@
+# Review of the retained project
+
+The workspace contains multiple iterations under `data/`, `New/`, `New/v2/`, several copies of v2 and V3, and `New/stanton_system_map/`. There is no single root launch target. Rather than replace one copy and leave ambiguity about the others, the maintained attempt now has a root README and one `app/` directory. Existing code, XML and backups are preserved.
+
+The most useful retained source was `data2/scuniverse/stanton/stantonsystem.xml`: it contains nested object containers and rotations. Some generated JSON/XML versions lose this relationship. For example, `data2/scuniverse/stanton/stantonparsed.xml` calls Clio's small parent-relative displacement an `AbsolutePosition`, and computes a relative position by subtracting the planet's much larger system position. That produces the wrong frame of reference. The new importer composes parent translation and quaternion rotation instead. The currently generated catalogue comes from the installed LIVE game, while the original source remains available as a fallback.
+
+`New/v2/js/main.js` uses an unconditional animation loop, uncapped device pixel ratio, and a second DOM label renderer. Those costs are especially relevant on dense mobile screens. The new schematic renderer draws on demand, caps resolution, paints its own labels and avoids downloading textures or requiring a GPU context. This trades full rendered planet/model fidelity for a small and predictable companion map.
+
+The retained backend needs separate static, Flask API and WebSocket services, plus MongoDB or a fallback. `New/v2/js/config.js` points its socket at `ws://localhost:8765`; from a phone that address points at the phone itself. The new service serves frontend and API from one origin and uses 15-second polling for the visible shard, which is simpler to deploy and debug.
+
+The v2 API stores client-provided route/report bodies and exposes unauthenticated deletes, and its route response includes a hard-coded user count. The new interface displays real stored reports and explicit empty states. Authentication, authoritative timestamps, server-calculated route positions, ownership checks, bounded payloads and one vote per account/report are handled by the single backend. No community activity or population is fabricated.
+
+The new game-data reader was verified against this installation's P4K. A full standard ZIP reader initially rejected the custom extra fields, and the central compression ID does not describe the actual stored SOC payload. The targeted reader handles the observed ZIP64 layout, uses the local entry method, reads one SOC container, and validates the nested XML. It deliberately fails on unsupported future formats instead of pretending that stale data is current.
+
+To extend coverage next, keep the same catalogue format and ingest additional planetary/station containers and the game's localized DataCore navigation records. This is the main remaining requirement for search parity with mobiGlas. Rendering the game UI's proprietary assets or reproducing every interior would be a substantially different scope from this maintainable system-map companion.
+
+Reference behavior: RSI's [quantum travel guide](https://support.robertsspaceindustries.com/hc/en-us/articles/360019449994-How-to-Quantum-Travel) describes searching for a destination and selecting “Route to this Location.” The companion follows that search/select/route pattern, but does not claim to execute an in-game jump.

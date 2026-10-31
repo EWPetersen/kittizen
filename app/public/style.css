@@ -1,0 +1,533 @@
+:root{
+  color-scheme:dark;
+  --bg:#070e1b;
+  --panel:#101b30;
+  --line:#344662;
+  --muted:#a3b3cd;
+  --ink:#edf3ff;
+  --cyan:#9bdcff;
+  --pink:#ff8fc9;
+  --red:#f3917e;
+  --gold:#dfbf81;
+  font-family:Arial,Helvetica,sans-serif;
+  font-size:14px}
+  *{
+    box-sizing:border-box}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--ink)}
+      button,input,select,textarea{
+        font:inherit;
+        color:inherit}
+        button{
+          cursor:pointer;
+          border:1px solid var(--line);
+          background:#182840;
+          padding:11px 13px;
+          min-height:44px;
+          border-radius:3px}
+          button:hover{
+            border-color:var(--cyan);
+            background:#233858}
+            button:disabled{
+              opacity:.45;
+              cursor:wait}
+              input,select,textarea{
+                width:100%;
+                border:1px solid var(--line);
+                background:#0b1528;
+                border-radius:3px;
+                padding:12px;
+                min-height:44px}
+                input:focus,select:focus,textarea:focus,button:focus-visible,summary:focus-visible{
+                  outline:2px solid var(--cyan);
+                  outline-offset:2px}
+                  label{
+                    display:block;
+                    font-size:10px;
+                    letter-spacing:1.6px;
+                    color:var(--muted);
+                    margin:21px 0 9px}
+                    header{
+                      height:78px;
+                      display:flex;
+                      align-items:center;
+                      justify-content:space-between;
+                      padding:0 27px;
+                      border-bottom:1px solid var(--line);
+                      background:#101b30}
+                      .brand{
+                        display:flex;
+                        align-items:center;
+                        gap:12px;
+                        color:var(--ink);
+                        text-decoration:none;
+                        font-size:31px;
+                        letter-spacing:-6px}
+                        .brand>span{
+                          color:var(--cyan)}
+                          .brand strong{
+                            font-size:17px;
+                            letter-spacing:3px}
+                            .brand small{
+                              display:block;
+                              font-size:8px;
+                              letter-spacing:1.5px;
+                              color:var(--muted);
+                              margin-top:6px}
+                              .header-right{
+                                display:flex;
+                                align-items:center;
+                                gap:22px}
+                                #connection{
+                                  font-size:9px;
+                                  letter-spacing:1px;
+                                  color:var(--cyan)}
+                                  main{
+                                    height:calc(100dvh - 78px);
+                                    display:grid;
+                                    grid-template-columns:290px minmax(0,1fr) 300px}
+                                    aside{
+                                      padding:24px 20px;
+                                      overflow-y:auto;
+                                      background:var(--panel);
+                                      scrollbar-width:thin}
+                                      #sidebar{
+                                        border-right:1px solid var(--line)}
+                                        #intel{
+                                          border-left:1px solid var(--line)}
+                                          .section-head{
+                                            display:flex;
+                                            align-items:center;
+                                            justify-content:space-between;
+                                            font-size:10px;
+                                            letter-spacing:1.7px;
+                                            color:var(--cyan);
+                                            margin-bottom:19px}
+                                            .section-head:not(:first-child){
+                                              border-top:1px solid var(--line);
+                                              padding-top:23px;
+                                              margin-top:25px}
+                                              .inline{
+                                                display:flex;
+                                                gap:8px;
+                                                align-items:center}
+                                                .inline>*{
+                                                  min-width:0}
+                                                  .inline>input,.inline>select{
+                                                    flex:1}
+                                                    .hint{
+                                                      font-size:11px;
+                                                      color:var(--muted);
+                                                      line-height:1.6}
+                                                      .muted{
+                                                        color:var(--muted)}
+                                                        .primary{
+                                                          background:var(--cyan);
+                                                          color:#092023;
+                                                          border-color:var(--cyan);
+                                                          font-weight:bold}
+                                                          .primary:hover{
+                                                            background:#b9fff0;
+                                                            color:#092023}
+                                                            .text-button{
+                                                              border:0;
+                                                              background:none;
+                                                              color:var(--cyan);
+                                                              padding:0;
+                                                              font-size:11px;
+                                                              min-height:30px}
+                                                              .results{
+                                                                max-height:235px;
+                                                                overflow:auto;
+                                                                margin-top:5px}
+                                                                .result{
+                                                                  display:flex;
+                                                                  justify-content:space-between;
+                                                                  align-items:center;
+                                                                  text-align:left;
+                                                                  width:100%;
+                                                                  border:0;
+                                                                  border-bottom:1px solid #20343a;
+                                                                  border-radius:0;
+                                                                  font-size:12px;
+                                                                  background:transparent}
+                                                                  .result small{
+                                                                    font-size:9px;
+                                                                    color:var(--muted);
+                                                                    text-transform:uppercase}
+                                                                    .selection{
+                                                                      border-left:2px solid var(--cyan);
+                                                                      padding:0 12px;
+                                                                      margin-top:20px}
+                                                                      .selection h3{
+                                                                        font-size:19px;
+                                                                        font-weight:normal;
+                                                                        margin:0 0 6px}
+                                                                        .selection small{
+                                                                          color:var(--muted);
+                                                                          font-size:10px}
+                                                                          .selection .inline{
+                                                                            margin-top:12px}
+                                                                            .selection button{
+                                                                              font-size:11px;
+                                                                              padding:8px}
+                                                                              details{
+                                                                                border-top:1px solid var(--line);
+                                                                                margin-top:20px;
+                                                                                padding-top:15px}
+                                                                                summary{
+                                                                                  cursor:pointer;
+                                                                                  font-size:12px;
+                                                                                  min-height:30px}
+                                                                                  summary span{
+                                                                                    float:right;
+                                                                                    color:var(--cyan)}
+                                                                                    .saved{
+                                                                                      display:flex;
+                                                                                      align-items:center;
+                                                                                      gap:4px;
+                                                                                      border-top:1px solid var(--line)}
+                                                                                      .saved button:first-child{
+                                                                                        flex:1;
+                                                                                        text-align:left;
+                                                                                        border:0;
+                                                                                        background:none;
+                                                                                        font-size:12px}
+                                                                                        .data-note{
+                                                                                          font-size:9px;
+                                                                                          line-height:1.8;
+                                                                                          color:var(--muted);
+                                                                                          margin-top:30px}
+                                                                                          #map-area{
+                                                                                            position:relative;
+                                                                                            overflow:hidden;
+                                                                                            background:radial-gradient(ellipse at 55% 45%,#192940 0%,#070e1b 65%)}
+                                                                                            canvas{
+                                                                                              display:block;
+                                                                                              width:100%;
+                                                                                              height:100%;
+                                                                                              touch-action:none}
+                                                                                              .map-title{
+                                                                                                position:absolute;
+                                                                                                top:27px;
+                                                                                                left:28px;
+                                                                                                pointer-events:none}
+                                                                                                .map-title>span{
+                                                                                                  font-size:9px;
+                                                                                                  color:var(--cyan);
+                                                                                                  letter-spacing:2px}
+                                                                                                  h1{
+                                                                                                    font-weight:normal;
+                                                                                                    font-size:31px;
+                                                                                                    letter-spacing:1px;
+                                                                                                    margin:10px 0}
+                                                                                                    .map-title p{
+                                                                                                      color:var(--muted);
+                                                                                                      font-size:11px}
+                                                                                                      .map-controls{
+                                                                                                        position:absolute;
+                                                                                                        right:20px;
+                                                                                                        top:26px;
+                                                                                                        display:flex;
+                                                                                                        flex-direction:column;
+                                                                                                        gap:6px}
+                                                                                                        .map-controls button{
+                                                                                                          font-size:20px;
+                                                                                                          min-width:46px;
+                                                                                                          background:#10232be6}
+                                                                                                          .map-controls span{
+                                                                                                            display:block;
+                                                                                                            font-size:8px;
+                                                                                                            color:var(--muted);
+                                                                                                            margin-top:3px}
+                                                                                                            .map-bottom{
+                                                                                                              position:absolute;
+                                                                                                              bottom:22px;
+                                                                                                              left:23px;
+                                                                                                              right:23px;
+                                                                                                              display:flex;
+                                                                                                              justify-content:space-between;
+                                                                                                              font-size:9px;
+                                                                                                              letter-spacing:1px;
+                                                                                                              color:var(--muted);
+                                                                                                              pointer-events:none}
+                                                                                                              .dot{
+                                                                                                                display:inline-block;
+                                                                                                                background:var(--cyan);
+                                                                                                                width:5px;
+                                                                                                                height:5px;
+                                                                                                                border-radius:50%;
+                                                                                                                margin-right:7px}
+                                                                                                                .map-help{
+                                                                                                                  position:absolute;
+                                                                                                                  bottom:47px;
+                                                                                                                  left:23px;
+                                                                                                                  font-size:8px;
+                                                                                                                  color:#77949b;
+                                                                                                                  letter-spacing:.6px;
+                                                                                                                  pointer-events:none}
+                                                                                                                  .report-button{
+                                                                                                                    position:absolute;
+                                                                                                                    bottom:78px;
+                                                                                                                    left:50%;
+                                                                                                                    transform:translateX(-50%);
+                                                                                                                    background:var(--cyan);
+                                                                                                                    color:#0a2126;
+                                                                                                                    font-weight:bold;
+                                                                                                                    padding:14px 22px;
+                                                                                                                    border:0;
+                                                                                                                    box-shadow:0 5px 30px #0007;
+                                                                                                                    white-space:nowrap}
+                                                                                                                    .filters{
+                                                                                                                      margin-bottom:17px}
+                                                                                                                      .report-card{
+                                                                                                                        padding:18px 0;
+                                                                                                                        border-top:1px solid var(--line)}
+                                                                                                                        .report-card h3{
+                                                                                                                          font-size:14px;
+                                                                                                                          margin:0;
+                                                                                                                          color:var(--red);
+                                                                                                                          font-weight:normal}
+                                                                                                                          .report-card.clear h3{
+                                                                                                                            color:var(--cyan)}
+                                                                                                                            .report-card .meta{
+                                                                                                                              display:flex;
+                                                                                                                              justify-content:space-between;
+                                                                                                                              gap:5px;
+                                                                                                                              font-size:10px;
+                                                                                                                              color:var(--muted);
+                                                                                                                              margin:9px 0}
+                                                                                                                              .report-card p{
+                                                                                                                                font-size:12px;
+                                                                                                                                line-height:1.6;
+                                                                                                                                margin:9px 0;
+                                                                                                                                overflow-wrap:anywhere}
+                                                                                                                                .report-card .loc{
+                                                                                                                                  color:var(--ink);
+                                                                                                                                  cursor:pointer;
+                                                                                                                                  text-align:left;
+                                                                                                                                  border:0;
+                                                                                                                                  background:none;
+                                                                                                                                  padding:0;
+                                                                                                                                  font-size:12px;
+                                                                                                                                  min-height:28px}
+                                                                                                                                  .report-card small{
+                                                                                                                                    display:block;
+                                                                                                                                    color:var(--muted);
+                                                                                                                                    font-size:10px;
+                                                                                                                                    line-height:1.7}
+                                                                                                                                    .report-card .votes{
+                                                                                                                                      display:flex;
+                                                                                                                                      gap:7px;
+                                                                                                                                      margin-top:12px}
+                                                                                                                                      .votes button{
+                                                                                                                                        font-size:11px;
+                                                                                                                                        flex:1}
+                                                                                                                                        .trust-note{
+                                                                                                                                          margin-top:28px;
+                                                                                                                                          border-top:1px solid var(--line);
+                                                                                                                                          padding-top:22px}
+                                                                                                                                          .trust-note>span{
+                                                                                                                                            color:var(--cyan);
+                                                                                                                                            font-size:9px;
+                                                                                                                                            letter-spacing:2px}
+                                                                                                                                            .trust-note p{
+                                                                                                                                              font-size:15px}
+                                                                                                                                              .trust-note small{
+                                                                                                                                                color:var(--muted);
+                                                                                                                                                font-size:11px;
+                                                                                                                                                line-height:1.7;
+                                                                                                                                                display:block}
+                                                                                                                                                .empty{
+                                                                                                                                                  padding:30px 10px;
+                                                                                                                                                  color:var(--muted);
+                                                                                                                                                  text-align:center;
+                                                                                                                                                  font-size:12px;
+                                                                                                                                                  line-height:1.8}
+                                                                                                                                                  .empty strong{
+                                                                                                                                                    display:block;
+                                                                                                                                                    color:var(--ink);
+                                                                                                                                                    font-size:16px;
+                                                                                                                                                    font-weight:normal;
+                                                                                                                                                    margin-bottom:9px}
+                                                                                                                                                    dialog{
+                                                                                                                                                      border:1px solid #40626a;
+                                                                                                                                                      border-radius:5px;
+                                                                                                                                                      background:var(--panel);
+                                                                                                                                                      color:var(--ink);
+                                                                                                                                                      width:440px;
+                                                                                                                                                      max-width:calc(100% - 24px);
+                                                                                                                                                      max-height:90dvh;
+                                                                                                                                                      padding:26px;
+                                                                                                                                                      box-shadow:0 25px 100px #0009}
+                                                                                                                                                      dialog::backdrop{
+                                                                                                                                                        background:#02090ec9;
+                                                                                                                                                        backdrop-filter:blur(5px)}
+                                                                                                                                                        dialog p{
+                                                                                                                                                          color:var(--muted);
+                                                                                                                                                          font-size:12px;
+                                                                                                                                                          line-height:1.8}
+                                                                                                                                                          .dialog-heading{
+                                                                                                                                                            display:flex;
+                                                                                                                                                            justify-content:space-between;
+                                                                                                                                                            align-items:center}
+                                                                                                                                                            .dialog-heading h2{
+                                                                                                                                                              font-size:23px;
+                                                                                                                                                              font-weight:normal;
+                                                                                                                                                              margin:0}
+                                                                                                                                                              .dialog-heading button{
+                                                                                                                                                                background:none;
+                                                                                                                                                                border:0;
+                                                                                                                                                                font-size:24px}
+                                                                                                                                                                .full{
+                                                                                                                                                                  width:100%;
+                                                                                                                                                                  margin-top:13px}
+                                                                                                                                                                  .error{
+                                                                                                                                                                    color:var(--red)}
+                                                                                                                                                                    output{
+                                                                                                                                                                      float:right;
+                                                                                                                                                                      color:var(--cyan)}
+                                                                                                                                                                      #toast{
+                                                                                                                                                                        position:fixed;
+                                                                                                                                                                        bottom:25px;
+                                                                                                                                                                        left:50%;
+                                                                                                                                                                        transform:translateX(-50%);
+                                                                                                                                                                        background:#d5fff1;
+                                                                                                                                                                        color:#102926;
+                                                                                                                                                                        padding:14px 23px;
+                                                                                                                                                                        border-radius:3px;
+                                                                                                                                                                        box-shadow:0 10px 40px #0008;
+                                                                                                                                                                        z-index:10;
+                                                                                                                                                                        max-width:90%;
+                                                                                                                                                                        font-size:12px;
+                                                                                                                                                                        display:none}
+                                                                                                                                                                        #mobile-nav{
+                                                                                                                                                                          display:none}
+                                                                                                                                                                          [hidden]{
+                                                                                                                                                                            display:none!important}
+                                                                                                                                                                            @media(min-width:1500px){
+                                                                                                                                                                              main{
+                                                                                                                                                                                grid-template-columns:320px minmax(0,1fr) 330px}
+                                                                                                                                                                                aside{
+                                                                                                                                                                                  padding:28px}
+                                                                                                                                                                                }
+                                                                                                                                                                                @media(max-width:1100px) and (min-width:701px){
+                                                                                                                                                                                  main{
+                                                                                                                                                                                    grid-template-columns:250px minmax(0,1fr)}
+                                                                                                                                                                                    #intel{
+                                                                                                                                                                                      position:absolute;
+                                                                                                                                                                                      right:10px;
+                                                                                                                                                                                      top:170px;
+                                                                                                                                                                                      width:260px;
+                                                                                                                                                                                      max-height:65dvh;
+                                                                                                                                                                                      display:none;
+                                                                                                                                                                                      z-index:2}
+                                                                                                                                                                                      body.intel-open #intel{
+                                                                                                                                                                                        display:block}
+                                                                                                                                                                                        #mobile-nav{
+                                                                                                                                                                                          display:flex;
+                                                                                                                                                                                          position:absolute;
+                                                                                                                                                                                          right:85px;
+                                                                                                                                                                                          top:94px}
+                                                                                                                                                                                          #mobile-nav button:not([data-panel="intel"]){
+                                                                                                                                                                                            display:none}
+                                                                                                                                                                                          }
+                                                                                                                                                                                          @media(max-width:700px){
+                                                                                                                                                                                            header{
+                                                                                                                                                                                              height:65px;
+                                                                                                                                                                                              padding:0 16px}
+                                                                                                                                                                                              .brand strong{
+                                                                                                                                                                                                font-size:14px}
+                                                                                                                                                                                                .brand small{
+                                                                                                                                                                                                  font-size:7px}
+                                                                                                                                                                                                  .header-right{
+                                                                                                                                                                                                    gap:9px}
+                                                                                                                                                                                                    #connection{
+                                                                                                                                                                                                      font-size:7px;
+                                                                                                                                                                                                      max-width:70px;
+                                                                                                                                                                                                      line-height:1.6}
+                                                                                                                                                                                                      main{
+                                                                                                                                                                                                        height:calc(100dvh - 127px);
+                                                                                                                                                                                                        display:block}
+                                                                                                                                                                                                        #sidebar,#intel{
+                                                                                                                                                                                                          position:absolute;
+                                                                                                                                                                                                          top:65px;
+                                                                                                                                                                                                          bottom:62px;
+                                                                                                                                                                                                          width:100%;
+                                                                                                                                                                                                          display:none;
+                                                                                                                                                                                                          z-index:2;
+                                                                                                                                                                                                          padding:22px;
+                                                                                                                                                                                                          border:0}
+                                                                                                                                                                                                          #map-area{
+                                                                                                                                                                                                            height:100%}
+                                                                                                                                                                                                            body.panel-sidebar #sidebar,body.panel-intel #intel{
+                                                                                                                                                                                                              display:block}
+                                                                                                                                                                                                              .map-title{
+                                                                                                                                                                                                                left:20px;
+                                                                                                                                                                                                                top:22px}
+                                                                                                                                                                                                                .map-title h1{
+                                                                                                                                                                                                                  font-size:25px;
+                                                                                                                                                                                                                  max-width:230px}
+                                                                                                                                                                                                                  .map-title p{
+                                                                                                                                                                                                                    max-width:190px;
+                                                                                                                                                                                                                    line-height:1.6}
+                                                                                                                                                                                                                    .map-controls{
+                                                                                                                                                                                                                      right:13px;
+                                                                                                                                                                                                                      top:22px}
+                                                                                                                                                                                                                      .map-help{
+                                                                                                                                                                                                                        font-size:7px;
+                                                                                                                                                                                                                        bottom:46px;
+                                                                                                                                                                                                                        max-width:210px;
+                                                                                                                                                                                                                        line-height:1.6}
+                                                                                                                                                                                                                        .report-button{
+                                                                                                                                                                                                                          bottom:82px}
+                                                                                                                                                                                                                          #mobile-nav{
+                                                                                                                                                                                                                            display:flex;
+                                                                                                                                                                                                                            position:fixed;
+                                                                                                                                                                                                                            bottom:0;
+                                                                                                                                                                                                                            width:100%;
+                                                                                                                                                                                                                            height:62px;
+                                                                                                                                                                                                                            padding-bottom:env(safe-area-inset-bottom);
+                                                                                                                                                                                                                            background:var(--panel);
+                                                                                                                                                                                                                            border-top:1px solid var(--line);
+                                                                                                                                                                                                                            z-index:3}
+                                                                                                                                                                                                                            #mobile-nav button{
+                                                                                                                                                                                                                              flex:1;
+                                                                                                                                                                                                                              background:none;
+                                                                                                                                                                                                                              border:0;
+                                                                                                                                                                                                                              font-size:11px;
+                                                                                                                                                                                                                              color:var(--muted);
+                                                                                                                                                                                                                              border-radius:0}
+                                                                                                                                                                                                                              #mobile-nav button.active{
+                                                                                                                                                                                                                                color:var(--cyan);
+                                                                                                                                                                                                                                border-top:2px solid var(--cyan)}
+                                                                                                                                                                                                                                #toast{
+                                                                                                                                                                                                                                  bottom:74px}
+                                                                                                                                                                                                                                  .results{
+                                                                                                                                                                                                                                    max-height:180px}
+                                                                                                                                                                                                                                  }
+                                                                                                                                                                                                                                  @media(max-width:700px){
+                                                                                                                                                                                                                                    input,select,textarea{
+                                                                                                                                                                                                                                      font-size:16px}
+                                                                                                                                                                                                                                    }
+.route-leg{display:block;text-align:left;width:100%;font-size:10px;margin:5px 0;padding:9px;line-height:1.5}.map-controls{z-index:1}
+#map{cursor:grab}#map:active{cursor:grabbing}
+.map-title{z-index:1;padding:12px 18px;background:linear-gradient(90deg,#07131ce6,#07131c99 75%,#07131c00);max-width:calc(100% - 110px)}.map-bottom{background:#07131cbb;padding:5px}.map-help{background:#07131cbb;padding:5px;max-width:calc(100% - 30px)}
+#heatmap[aria-pressed="true"]{border-color:#ffa36b;color:#ffd1a0;background:#442a22}#heat-legend{position:absolute;left:23px;bottom:139px;padding:12px;background:#07131eea;border:1px solid #48535b;max-width:280px;pointer-events:none;font-size:10px}#heat-legend strong{letter-spacing:1.5px;color:#ffce97}.heat-ramp{height:7px;background:linear-gradient(90deg,#ffc84633,#ff9823,#ff4823);margin:9px 0 4px}.heat-scale{display:flex;justify-content:space-between}#heat-legend small{display:block;font-size:9px;line-height:1.65;color:#c5cdd0;margin-top:7px}@media(max-width:700px){#heat-legend{bottom:139px;left:14px;max-width:230px;padding:9px}}
+
+/* Kittizen livery: navy hull, ice-blue instrumentation, pink identity. */
+header{background:linear-gradient(110deg,#14233d,#0b1426 70%);border-top:3px solid var(--pink);position:relative}
+header::after{content:"";position:absolute;bottom:-1px;left:27px;width:130px;height:2px;background:linear-gradient(90deg,var(--pink) 65%,var(--cyan) 65%)}
+.brand{gap:12px;letter-spacing:normal}.brand-mark{width:44px;height:44px;flex:none;color:var(--pink)}
+.brand strong{color:#fff1f9}.brand small{color:var(--cyan)}
+.primary,.report-button{background:var(--pink);border-color:var(--pink);color:#241027}
+.primary:hover,.report-button:hover{background:#ffb4db;border-color:#ffb4db;color:#241027}
+.section-head{color:var(--pink)}.selection{border-left-color:var(--pink)}
+#shard-form button{border-color:#c96b9e;color:#ffc4e3;background:#302038}
+a{color:var(--cyan)}dialog{border-color:#63718b}dialog li{line-height:1.5;margin-bottom:8px}
+#mobile-nav button.active{color:var(--pink);border-top-color:var(--pink)}
+@media(max-width:700px){.brand-mark{width:33px;height:33px}.brand{gap:8px}}
+
+.profile-stats{display:grid;grid-template-columns:1fr auto;gap:12px;border-block:1px solid var(--line);padding:18px 0}.profile-stats dt{color:var(--muted)}.profile-stats dd{margin:0;color:var(--pink);font-weight:bold;font-size:18px}#profile-dialog{width:min(560px,calc(100% - 24px))}#profile-content .report-card{margin-block:12px}#sign-out{margin-top:20px}#profile-google{margin-top:14px}

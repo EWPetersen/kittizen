@@ -1,0 +1,93 @@
+# Kittizen
+
+This document supersedes the first-pass map limitations in the historical project review.
+
+## Start and update
+
+From `C:\kittizen`, run ` .\app\start.ps1 ` and open http://127.0.0.1:8077. The launcher prefers the bundled Python on this computer, avoiding the Windows Store `python` alias. The HTTP app still uses only Python's standard library and SQLite.
+
+Extraction requires two small libraries, installed on this computer already. On a fresh checkout, install them once with ` .\app\setup-extractor.ps1 `. Versions are pinned in `scripts/requirements.txt`; there are no frontend packages or build steps.
+
+The normal launcher checks the game at startup and the running service watches it every 30 seconds. Two stable samples are required after an archive/manifest change. Extraction runs in a worker process; the existing app keeps serving the last good map. A successful atomic publish reloads the backend and open browsers automatically. No server restart or manual browser refresh is required after a patch. If the app was closed during the patch, startup catches up. This is an in-app watcher, not an OS-wide background service.
+
+To force a rebuild: `python app/scripts/update_game_data.py --force`. To select PTU, supply `-GamePath 'D:\Games\Roberts Space Industries\StarCitizen\PTU'` to `start.ps1`. `-NoGameWatch` is available for isolated testing.
+
+## Map behavior
+
+**Activity heatmap:** always visible in 2D and 3D, with right-drag panning and normal camera rotation. Recent Interdiction/Pirates reports contribute danger heat, Suspicious reports contribute 60%, and Clear reports contribute none. Nearby reports add together on a fixed intensity scale. Every contribution halves after 30 minutes and disappears at two hours from creation; verification cannot renew it. Heat and cached report expiry update every 15 seconds, including during a failed network refresh. System views show activity through the current camera; universe discs show per-system totals. Heat is scoped to the chosen shard and activity filter. No heat is not evidence of safety.
+
+- Default universe overview: three **separate** orbital discs for Stanton, Pyro and Nyx, placed using their extracted galactic positions. Each disc uses its own readable local scale; galactic coordinates are not mixed with local metre coordinates.
+- Click a disc, use **Map system**, or zoom toward a disc to enter a system. Zooming out far enough returns to the universe.
+- Stanton's reset orientation places **microTech upper right**, Crusader left and ArcCorp lower right.
+- **Drag to rotate** the 3D camera. **Right-drag or Shift-drag to pan**. Scroll/pinch to zoom. One touch rotates; two touches pan and pinch.
+- **Double right-click** resets the view in the current system without changing systems or clearing the route. Double left-click zooms; double-click a jump gate to visit an installed destination. The gate's selection panel also offers a Travel button.
+- Search the game's localized POI names. Selecting a POI faces its actual surface position; selecting a planet offers surface and orbital views. Far-side surface markers are occluded.
+- Real game starmap textures are mapped onto globes using the extracted reference rotations. The renderer draws on demand and uses a lower interactive resolution while dragging, sharpening when released.
+
+## POI-to-POI routes
+
+Search the origin and select **Depart here**, then search the destination and select **Route here**. This immediately plans the full route. The departure/destination lists and saved jumps also work with POIs and with different systems.
+
+The backend is authoritative. It uses extracted obstruction, arrival and sub-point radii. Surface departure/arrival is an amber **local flight** leg; quantum legs are green. A visibility graph chooses among six reference-axis OM candidates when a direct leg is obstructed. Routes through different systems use reciprocal installed gates and include explicit jump-tunnel legs. Clicking an itinerary step frames that segment. Saved jumps retain their actual endpoint IDs.
+
+Report placement measures distance along those planned flight legs; it never interpolates across unrelated system coordinate frames. Tunnel length is excluded. A report is assigned to its actual system as well as its shard. Reputation, independent account verification and two-hour report expiry remain in place.
+
+These are **estimated companion routes**, not CIG's complete navigation solver. OM numbering/reference phase and the conservative local-flight model need comparison with live gameplay. Drive range, fuel, quantum boost, spool/calibration, live planet rotation, event state and dynamic navigation restrictions are not simulated. Verify the final route in game.
+
+## Extracted coverage and maintenance
+
+The tested LIVE archive produced **773 catalogue entries across all three systems**, **32 texture mappings**, and **108 traversed containers**. This includes surface facilities, landing zones, orbital stations, jump points and Levski. Hidden and auxiliary entries are retained where needed for hierarchy but do not all appear as default map markers. File-backed conditional event points are not a promise that an event is active on a shard.
+
+The extractor reads the P4K index selectively, the DataCore v8 navigation schema, English localization and relevant nested containers. It reconstructs only the necessary DDS mipmaps, rather than unpacking the entire 161 GB game archive. Local game files remain read-only. Generated data and game images stay in ignored storage/asset folders. Unknown formats, incomplete systems or changed files during extraction retain the last good publication and expose an update error in the app.
+
+Main files: `server.py` (API/storage/watcher), `routing.py` (constraints), `public/app.js` (UI), `public/map.js` (camera/map), `public/sphere.js` (globe sampling), and `scripts/` (extraction). Generated asset paths are immutable per game/pipeline version. The visual shell remains custom; it does not reproduce every CIG shader, animation, interior or game-only UI interaction.
+
+## Verification
+
+On this computer, run ` .\app\test.ps1 ` from `C:\kittizen`; it selects the bundled runtimes and runs all 73 checks.
+
+```powershell
+python -m unittest discover -s app/tests -v
+node --test app/tests/map.test.mjs app/tests/geometry.test.mjs app/tests/heatmap.test.mjs
+```
+
+The current suite has 43 Python tests and 30 JavaScript tests. It covers system separation, upper-right orientation, default drag rotation, zoom transitions, gate traversal, double-right-click reset in every system, hemisphere occlusion, route constraints, POI exits/arrivals, cross-system report placement, stable patch detection, failed-update retention, hot reload, accounts and reputation.
+
+An additional sweep planned all **72 directed routes among nine common cities/stations** without failure. Browser checks use the real local service and game textures; physical Android/iOS performance and exact live-game parity have not been established.
+
+Binary layout references consulted: [scdatatools DataCore definitions](https://github.com/ExterraGroup/scdatatools/blob/master/scdatatools/forge/dftypes/__init__.py) and [StarBreaker format/conversion documentation](https://github.com/diogotr7/StarBreaker). Extraction code here is intentionally limited to the formats actually verified against this installation.
+
+## Accounts and reputation
+
+Reports are isolated by shard. Authors cannot vote on their own reports; an account can verify each report once. One latest contribution per verifier per author counts toward reputation, with a seven-day evidence half-life. Score = 100 × positive weight / (positive weight + negative weight + 4). Established starts at 40%; Trusted requires 70% and ten weighted positive verifiers. These are local accounts, not verified RSI identities.
+
+For a phone on your private network, explicitly launch with -BindAddress 0.0.0.0 and open your PC's LAN address on port 8077. The normal default is loopback only.
+
+
+
+
+Shard selection uses one of US, EU, AUS, ASIA and exactly three ASCII digits, stored as REGION-NNN. Leading zeros are preserved. Old free-form shard data is retained without guessing a region or number; invalid saved selections prompt a fresh selection.
+
+
+## Pilot profiles and optional Google sign-in
+
+Click your username to open your profile, change your public handle, review lifetime contribution totals and your latest 50 reports, or sign out. Report authors link to public profiles at `/#pilot/HANDLE`; only the owner receives detailed report history. Google email, name, picture and credentials are never published. Trust remains based on independent report verification, not Google identity.
+
+Google is disabled until configured. To enable it:
+
+1. Create a Google Cloud project and configure its OAuth consent screen/audience. Create an **OAuth client ID → Web application** using [Google's setup guide](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid). Add your exact website origin under Authorized JavaScript origins. For development, use `http://localhost:8077` and access the app at that address; for deployment use the final HTTPS origin. Add test users while the consent screen is in testing mode. No client secret or redirect URI is needed for this GIS popup credential flow.
+2. Install the optional dependency into the same Python environment used by the server: `python -m pip install -r app/requirements-auth.txt`.
+3. Set `KITTIZEN_GOOGLE_CLIENT_ID` to the public client ID ending in `.apps.googleusercontent.com`, then restart the app. On HTTPS deployments also set `KITTIZEN_SECURE_COOKIE=1`.
+4. Existing pilots should sign in locally, open their profile and select **Link Google sign-in**. New pilots use **Continue with Google** in the sign-in dialog and can choose a handle from their profile. Linking preserves reports, saved routes and trust; accounts are never silently merged by email.
+
+The backend uses Google's verification library to check the signature, issuer, expiry and audience, then checks a ten-minute, single-use nonce. Google `sub` identifies the account. An existing Google identity cannot be linked to a different pilot. No Google access/refresh tokens are stored. Google scripts load only when sign-in/linking is opened and a client ID is configured. Local login remains available during setup or Google outages.
+
+Tests cover profiles, owner-only history, totals including expired reports, Google-disabled errors, rejected tokens, nonce matching/replay, returning accounts and account-link conflicts. Google responses are mocked in these isolated tests. A real Google popup and token verification must still be tested after the client ID and origins are configured.
+
+
+## Hosted beta preparation
+
+See [deployment/README.md](deployment/README.md) for the prepared Vercel + Supabase workflow, required environment variables, private database schema, verification steps and rollback. Run `python app/scripts/prepare_deploy.py` from the workspace root to produce the upload directory. The local app continues to use SQLite unless `KITTIZEN_DATABASE_URL` is explicitly configured.
+
+
+Public source repository note: generated `public/catalog.json` and `public/game-assets/` are not committed. Follow the extraction setup before starting a fresh clone or running tests. They remain in the local working copy and local deployment package.
