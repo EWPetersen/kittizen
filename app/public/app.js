@@ -202,14 +202,11 @@ function renderReports() {
     const pilot=el('button',r.handle,'text-button');pilot.onclick=()=>openProfile(r.handle);
     meta.append(pilot,el('span',(r.system || 'stanton').toUpperCase()),el('span',ago(r.created)));
     let loc = el('button', r.location, 'loc');
-    loc.onclick = () => {
-      if (map.system !== (r.system || 'stanton')) map.setSystem(r.system || 'stanton');
-      map.center = [...r.position];
-      map.span = r.route ? Math.max(2e8, map.span) : 2e8;
-      map.marker = r.position;
-      map.invalidate();
-      panel('map-area');
-    };
+    loc.onclick = () => focusActivity(r);
+    const show=el('button',title.textContent,'text-button');
+    show.title='Show reported activity on map';show.onclick=()=>focusActivity(r);
+    title.replaceChildren(show);
+    card.onclick=e=>{if(!e.target.closest('button,a,input,select'))focusActivity(r);};
     card.append(title, meta, loc);
     if (r.notes) card.append(el('p', r.notes));
     card.append(el('small', `${r.trust.tier} · ${r.trust.score}% trust · ${r.trust.verifiers} independent verifiers`), el('small', `${r.confirmations} confirmed · ${r.disputes} disputed · last confirmation ${ago(r.lastVerified)}`));
@@ -243,6 +240,14 @@ function renderReports() {
   }
 }
 
+function focusActivity(r) {
+  if($('#profile-dialog').open)$('#profile-dialog').close();
+  if(!map.focusReport(r))return toast('This report has no mapped position');
+  $('#map-name').textContent=r.kind+' · '+r.location;
+  $('#map-subtitle').textContent='Reported activity / '+(r.system||'stanton').toUpperCase();
+  panel('map-area');
+}
+
 function selectBody(b, focus = true) {
   if (map.system !== b.system && b.system) map.setSystem(b.system);
   selected = b;
@@ -253,6 +258,7 @@ function selectBody(b, focus = true) {
   let root = $('#selection');
   const parent = bodies.find(p => p.id === b.parent);
   root.replaceChildren(el('h3', b.name), el('small', b.kind.toUpperCase() + (parent ? ' · ' + parent.name : '')));
+  if(b.kind==='om')root.append(el('p','Derived orbital position; OM numbering is approximate.','hint'));
   let actions = el('div', undefined, 'inline');
   for (let [id, label] of [
       ['origin', 'Depart here'],
@@ -535,7 +541,7 @@ async function start() {
   try {
     catalog = await fetch('catalog.json').then(r => r.json());
     bodies = catalog.bodies;
-    map = new StarMap($('#map'), bodies, b => selectBody(b), (t, r) => r ? toast(r.kind + ' · ' + r.location) : report(t));
+    map = new StarMap($('#map'), bodies, b => selectBody(b), (t, r) => r ? focusActivity(r) : report(t));
     map.systems = catalog.systems || [{
       id: 'stanton',
       name: 'Stanton',

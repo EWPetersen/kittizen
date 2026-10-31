@@ -19,3 +19,12 @@ test('route fit and tapping the middle returns halfway placement',()=>{let f=fix
 test('shift-drag pans without selecting a body',()=>{let f=fixture();f.events.pointerdown({pointerId:1,clientX:100,clientY:100});f.events.pointermove({pointerId:1,clientX:150,clientY:110,shiftKey:true});f.events.pointerup({pointerId:1,clientX:150,clientY:110});assert.notDeepEqual(f.map.center,[0,0,0]);assert.equal(f.selected,null);assert.equal(f.map.pointers.size,0);});
 test('pinch zoom, cancellation, orbit pitch clamp',()=>{let f=fixture();f.events.pointerdown({pointerId:1,clientX:100,clientY:100});f.events.pointerdown({pointerId:2,clientX:200,clientY:100});let old=f.map.span;f.events.pointermove({pointerId:2,clientX:250,clientY:100});assert.ok(f.map.span<old);f.events.pointercancel({pointerId:2});f.events.pointermove({pointerId:1,clientX:110,clientY:10000,shiftKey:false});assert.equal(f.map.pitch,Math.PI/2-.01);f.events.pointercancel({pointerId:1});assert.equal(f.map.pointers.size,0);});
 test('selected label renders even in crowded system view and reports draw',()=>{let f=fixture();f.map.reports=[{kind:'Pirates',created:Date.now()/1000,position:[0,0,0]}];f.map.selected='a';assert.doesNotThrow(()=>f.map.draw());assert.ok(f.map.hits.some(h=>h.report));});
+
+test('focus animates without jumping, settles exactly and stops rendering',()=>{
+ const {map,bodies}=fixture();globalThis.matchMedia=()=>({matches:false});
+ const before=map.camera();map.focus(bodies[0]);assert.deepEqual(map.center,before.center);assert.equal(map.span,before.span);
+ const move=map.transition;map.advanceCamera(move.time+move.duration/2);assert.ok(map.span<before.span&&map.span>2.8e6);assert.ok(map.center[0]>0&&map.center[0]<bodies[0].position[0]);
+ map.advanceCamera(move.time+move.duration);assert.equal(map.transition,null);assert.deepEqual(map.center,bodies[0].position);assert.equal(map.span,2.8e6);
+ map.focus(bodies[1]);map.pan(10,0);assert.equal(map.transition,null);
+ globalThis.matchMedia=()=>({matches:true});map.focus(bodies[0]);assert.equal(map.transition,null);delete globalThis.matchMedia;
+});

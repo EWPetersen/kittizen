@@ -78,7 +78,10 @@ def orbit_markers(body):
     axes = [[0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0]]
     return [
         dict(
+            id=f'{body["id"]}:om:{i+1}',
             name=f'{body["name"]} OM-{i+1}',
+            parent=body['id'],
+            source='Derived from body reference axes and extracted quantum boundary; OM numbering is approximate',
             position=add(body["position"], mul(rotate(body.get("rotation"), axis), r)),
             system=body.get("system", "stanton"),
             kind="om",

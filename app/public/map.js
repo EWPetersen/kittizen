@@ -33,6 +33,7 @@ export class StarMap {
       passive: false
     });
     canvas.addEventListener('pointerdown', e => {
+      this.transition = null;
       canvas.setPointerCapture(e.pointerId);
       this.pointers.set(e.pointerId, [e.clientX, e.clientY]);
       this.start = [e.clientX, e.clientY];
@@ -84,8 +85,29 @@ export class StarMap {
     this.pending = true;
     requestAnimationFrame(() => {
       this.pending = false;
+      this.advanceCamera(performance.now());
       this.draw();
+      if (this.transition) this.invalidate();
     });
+  }
+  camera() { return {center:[...this.center],span:this.span,yaw:this.yaw,pitch:this.pitch}; }
+  flyTo(target) {
+    const start=this.camera();
+    if (typeof matchMedia !== 'function' || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      Object.assign(this,target);this.transition=null;this.invalidate();return;
+    }
+    const angle=((target.yaw-start.yaw+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
+    this.transition={start,target:{...target,yaw:start.yaw+angle},time:performance.now(),duration:Math.min(1400,650+Math.abs(Math.log(target.span/start.span))*65)};
+    this.invalidate();
+  }
+  advanceCamera(now) {
+    const move=this.transition;if(!move)return;
+    const t=Math.min(1,Math.max(0,(now-move.time)/move.duration)),ease=t*t*(3-2*t),travel=1-(1-t)**4;
+    this.center=move.start.center.map((v,i)=>v+(move.target.center[i]-v)*travel);
+    this.span=Math.exp(Math.log(move.start.span)*(1-ease)+Math.log(move.target.span)*ease);
+    this.yaw=move.start.yaw+(move.target.yaw-move.start.yaw)*ease;
+    this.pitch=move.start.pitch+(move.target.pitch-move.start.pitch)*ease;
+    if(t===1){Object.assign(this,move.target);this.transition=null;}
   }
   setBodies(bodies) {
     this.bodies = bodies;
@@ -108,6 +130,7 @@ export class StarMap {
     return [this.w / 2 + u * this.scale, this.h / 2 + (v * Math.sin(this.pitch) - z * Math.cos(this.pitch)) * this.scale, v * Math.cos(this.pitch) + z * Math.sin(this.pitch)];
   }
   zoom(f, anchor) {
+    this.transition = null;
     if (this.system === 'universe' && f > 1 && this.span / f < 45) {
       const point = anchor || [this.w / 2, this.h / 2],
         closest = this.hits.filter(h => h.body?.kind === 'system').sort((a, b) => Math.hypot(a.x - point[0], a.y - point[1]) - Math.hypot(b.x - point[0], b.y - point[1]))[0];
@@ -143,6 +166,7 @@ export class StarMap {
     this.invalidate();
   }
   home() {
+    this.transition = null;
     if (this.system === 'universe') {
       this.center = [0, 0, 0];
       for (const s of this.systems) s.position.forEach((v, i) => this.center[i] += v / this.systems.length);
@@ -168,18 +192,37 @@ export class StarMap {
     this.onSystemChanged?.(id);
   }
   focus(b) {
+    const start=this.camera();
     this.center = [...b.position];
-    const parent = this.surfaceParent(b);
+    const parent = b.radius > 0 ? null : this.surfaceParent(b);
     this.span = b.radius > 0 ? b.radius * 2.8 : b.kind === 'star' ? 1.2e11 : parent ? parent.radius * 2.8 : 2e7;
     if (parent) {
       const normal = b.position.map((v, i) => v - parent.position[i]),
         length = Math.hypot(...normal);
-      this.center = [...parent.position];
-      this.yaw = Math.atan2(normal[0], normal[1]);
-      this.pitch = Math.asin(normal[2] / length);
+      this.center = [...(b.kind==='om' ? b.position : parent.position)];
+      if(length>0){this.yaw = Math.atan2(normal[0], normal[1]);
+      this.pitch = Math.asin(Math.max(-1,Math.min(1,normal[2] / length)));}
     }
     this.selected = b.id;
-    this.invalidate();
+    const target=this.camera();
+    if(b.kind==='om'){
+      target.span=Math.max(2e4,parent ? parent.radius*4 : 2e6);
+      target.pitch=Math.max(-Math.PI/2+.01,Math.min(Math.PI/2-.01,target.pitch-.55));
+    }
+    Object.assign(this,start);this.flyTo(target);
+  }
+  focusReport(report) {
+    if(!Array.isArray(report.position)||report.position.length!==3||!report.position.every(Number.isFinite))return false;
+    const system=report.system||'stanton';
+    if(this.system!==system)this.setSystem(system);
+    const body=this.byId.get(report.locationId);
+    if(body)this.focus(body);
+    else {
+      const parent=this.bodies.find(b=>b.system===system&&b.radius>0&&Math.hypot(...report.position.map((v,i)=>v-b.position[i]))<b.radius*2);
+      if(parent)this.focus({id:null,parent:parent.id,position:report.position});
+      else this.flyTo({...this.camera(),center:[...report.position],span:2e7});
+    }
+    this.marker=[...report.position];this.invalidate();return true;
   }
   surfaceParent(body) {
     const seen = new Set();
@@ -199,6 +242,7 @@ export class StarMap {
     return distance < parent.radius && point[2] - center[2] < Math.sqrt(parent.radius ** 2 - distance ** 2) - 50;
   }
   pan(dx, dy) {
+    this.transition=null;
     const scale = Math.min(this.w, this.h) / this.span,
       u = dx / scale,
       v = dy / scale;
@@ -207,11 +251,12 @@ export class StarMap {
     this.center[2] += v * Math.cos(this.pitch);
   }
   focusSystem(body) {
+    const start=this.camera();
     this.center = [...body.position];
     this.selected = body.id;
     const children = this.bodies.filter(b => b.parent === body.id);
     this.span = Math.max(body.radius * 8, ...children.map(b => Math.hypot(...b.position.map((v, i) => v - body.position[i])) * 2.6));
-    this.invalidate();
+    const target=this.camera();Object.assign(this,start);this.flyTo(target);
   }
   fitRoute(a, b) {
     this.route = [a, b];

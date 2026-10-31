@@ -117,6 +117,7 @@ class AppTests(unittest.TestCase):
 
     def test_01_guest_and_accounts(self):
         self.assertIsNone(self.request(self.anon, "me")[1]["user"])
+
         self.assertEqual(self.request(self.anon, "reports", {})[0], 401)
         self.assertEqual(self.request(self.anon, "routes", {})[0], 401)
         self.assertEqual(self.request(self.anon, "vote", {})[0], 401)
@@ -150,6 +151,18 @@ class AppTests(unittest.TestCase):
         )
         self.assertEqual(self.request(self.anon, "logout", {})[0], 200)
         self.assertIsNone(self.request(self.anon, "me")[1]["user"])
+
+    def test_surface_poi_and_om_report_coordinates(self):
+        for index,name in enumerate(('New Babbage','Lorville','Jumptown','microTech OM-1')):
+            client=self.client()
+            self.assertEqual(self.request(client,'register',{'handle':'SurfaceQA_'+str(index),'password':'test-password-only'})[0],200)
+            body=self.bodies[name]
+            status,created=self.request(client,'reports',{'shard':'AUS-998','kind':'Suspicious','location':body['id']})
+            self.assertEqual(status,201,created)
+            row=next(r for r in self.request(client,'reports?shard=AUS-998')[1] if r['id']==created['id'])
+            self.assertEqual(row['locationId'],body['id'])
+            self.assertEqual(row['position'],body['position'])
+            self.assertEqual(row['system'],body['system'])
 
     def test_02_shard_isolation_and_notes(self):
         rid = self.create(shard="us-001", notes="<script>alert(1)</script>")

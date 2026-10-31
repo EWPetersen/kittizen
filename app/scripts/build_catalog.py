@@ -3,11 +3,13 @@ CryEngine rotations are w,x,y,z; children inherit the parent's full transform.
 No game installation files are modified or redistributed.
 """
 
-import json, re, math
+import json, re, math, sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from routing import orbit_markers
 
 
 def mul(a, b):
@@ -221,6 +223,7 @@ def build(
         raise ValueError("Duplicate location IDs; catalogue was not replaced.")
     if any(not all(math.isfinite(v) for v in b["position"]) for b in bodies):
         raise ValueError("Non-finite coordinates")
+    bodies.extend(marker for body in list(bodies) if body['kind'] in ('planet','moon') and body.get('radius',0)>0 for marker in orbit_markers(body))
     result = dict(
         system=system,
         units="metres",

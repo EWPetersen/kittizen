@@ -23,3 +23,19 @@ test('double right-click resets each current system and preserves the route',()=
 test('right-drag does not accidentally trigger a reset',()=>{const {map,events}=fixture();const before=[...map.center];for(const time of [100,300]){events.pointerdown({pointerId:1,button:2,clientX:100,clientY:100});events.pointermove({pointerId:1,clientX:160,clientY:130});events.pointerup({pointerId:1,button:2,timeStamp:time,clientX:160,clientY:130});}assert.notDeepEqual(map.center,before);assert.equal(map.rightTap,null);});
 test('focusing a POI faces the actual location and hides the opposite hemisphere',()=>{const {map}=fixture();const poi=catalog.bodies.find(b=>b.name==='New Babbage'),parent=catalog.bodies.find(b=>b.id===poi.parent);map.focus(poi);map.draw();const p=map.project(poi.position);assert.ok(Math.abs(p[0]-map.w/2)<.01&&Math.abs(p[1]-map.h/2)<.01);assert.equal(map.occluded(poi.position,parent),false);const opposite=poi.position.map((v,i)=>parent.position[i]*2-v);assert.equal(map.occluded(opposite,parent),true);});
 test('activity overlay allows right-drag panning in 2D and 3D',()=>{for(const pitch of [-.72,-Math.PI/2]){const {map,events}=fixture();map.pitch=pitch;map.draw();const point=[...map.center],before=map.project(point),yaw=map.yaw;events.pointerdown({pointerId:1,button:2,clientX:100,clientY:100});events.pointermove({pointerId:1,buttons:2,clientX:150,clientY:120});events.pointerup({pointerId:1,button:2,clientX:150,clientY:120});const after=map.project(point);assert.ok(Math.abs(after[0]-before[0]-50)<.001);assert.ok(Math.abs(after[1]-before[1]-20)<.001);assert.equal(map.yaw,yaw);assert.equal(map.pitch,pitch);assert.equal(map.rightTap,null);}});
+
+test('every planet and moon has six selectable, focusable OM markers',()=>{
+ const {map}=fixture();for(const parent of catalog.bodies.filter(b=>['planet','moon'].includes(b.kind))){
+  const markers=catalog.bodies.filter(b=>b.kind==='om'&&b.parent===parent.id);assert.equal(markers.length,6,parent.name);
+  for(const marker of markers){map.setSystem(parent.system);map.focus(marker);map.draw();assert.deepEqual(map.center,marker.position);assert.ok(map.hits.some(h=>h.body?.id===marker.id),marker.name);}
+ }
+});
+test('focusing a moon centers the moon rather than its planet',()=>{
+ const {map}=fixture();for(const body of catalog.bodies.filter(b=>b.kind==='moon')){map.setSystem(body.system);map.focus(body);assert.deepEqual(map.center,body.position);assert.equal(map.span,body.radius*2.8);}
+});
+test('surface activity focuses the POI hemisphere and its exact marker',()=>{
+ const {map}=fixture();for(const name of ['New Babbage','Lorville','Jumptown']){
+  const poi=catalog.bodies.find(b=>b.name===name);const report={locationId:poi.id,position:poi.position,system:poi.system};map.setSystem('universe');assert.ok(map.focusReport(report));map.draw();assert.equal(map.system,poi.system);assert.equal(map.selected,poi.id);assert.deepEqual(map.marker,poi.position);const [x,y]=map.project(poi.position);assert.ok(Math.abs(x-map.w/2)<.01&&Math.abs(y-map.h/2)<.01);assert.ok(!map.occluded(poi.position,map.surfaceParent(poi)));
+ }
+ assert.equal(map.focusReport({position:[NaN,0,0]}),false);
+});
