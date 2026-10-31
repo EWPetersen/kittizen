@@ -24,5 +24,7 @@ def verify(root=ROOT):
     for body in catalog['bodies']:
         if body.get('texture') and not (root/'public'/body['texture']).is_file():
             raise ValueError('Missing map texture')
+        if body.get('model') and not (root/'public'/body['model']).is_file():
+            raise ValueError('Missing map model')
     return len(manifest)
 if __name__=='__main__': print('Verified',verify(),'deployment files; no local database or secrets included.')

@@ -11,7 +11,7 @@ from nav_metadata import navigation
 from p4k import P4K
 
 ENTRY = "data/objectcontainers/pu/system/stanton/stantonsystem.socpak"
-PIPELINE_VERSION = 3
+PIPELINE_VERSION = 4
 
 
 def fingerprint(game):
@@ -182,6 +182,8 @@ def update(game, force=False):
     result["system"] = "Universe"
     result["generation"] = stamp
     result["galacticUnits"] = "game galactic coordinates (not metres)"
+    from map_models import extract_models
+    asset_paths.extend(extract_models(archive,result,nav,ROOT))
     staged.write_text(
         json.dumps(result, separators=(",", ":"), allow_nan=False), encoding="utf-8"
     )

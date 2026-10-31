@@ -2,6 +2,7 @@ import {
   GlobeTextures
 } from './sphere.js';
 import {activityWeight,heatField,heatPixels} from './heatmap.js';
+import {MapModels} from './models.js';
 // Stable candidate order and remembered anchor choices reduce label swapping while orbiting.
 export function labelPriority(body,selected=false) {
   return body.kind==='planet'?0:body.kind==='star'?1:body.kind==='moon'?2:selected?3:body.kind==='gateway'?4:body.kind==='om'?5:6;
@@ -46,6 +47,7 @@ export class StarMap {
     this.systems = [];
     this.routePlan = null;
     this.globeTextures = new GlobeTextures(() => this.invalidate());
+    this.mapModels = new MapModels(() => this.invalidate());
     new ResizeObserver(() => this.invalidate()).observe(canvas);
     canvas.addEventListener('wheel', e => {
       e.preventDefault();
@@ -242,6 +244,7 @@ export class StarMap {
       target.span=Math.max(2e4,parent ? parent.radius*4 : 2e6);
       target.pitch=Math.max(-Math.PI/2+.01,Math.min(Math.PI/2-.01,target.pitch-.55));
     }
+    if(b.model){target.center=[...b.position];target.span=Math.max(2e4,(b.modelSize||1000)*8);}
     Object.assign(this,start);this.flyTo(target);
   }
   focusReport(report) {
@@ -542,6 +545,8 @@ export class StarMap {
     for (let b of sorted) {
       let [x, y] = this.project(b.position);
       const bound = Math.max(30, (b.radius || 0) * this.scale);
+      // Keep an enormous nearby globe from becoming an opaque backdrop in a station close-up.
+      if (b.radius > 0 && bound > Math.max(this.w,this.h)*4 && this.byId.get(this.selected)?.model) continue;
       if (x < -bound || x > this.w + bound || y < -bound || y > this.h + bound) continue;
       if (b.hidden) continue;
       if (b.category === 'auxiliary' && this.selected !== b.id) continue;
@@ -554,12 +559,17 @@ export class StarMap {
       let selected = this.selected === b.id;
       let r = b.kind === 'star' ? 10 : b.radius > 0 ? Math.max(b.kind === 'planet' ? 13 : 7, b.radius * this.scale) : 4;
       let color = b.kind === 'star' ? '#e7ce90' : b.kind === 'gateway' ? '#d9bf88' : b.kind === 'planet' ? '#86c8d0' : '#6b9ca8';
+      const model=b.model&&this.span<4e8&&(!parent||this.span<parent.radius*12)?this.mapModels.get(b,this.yaw,this.pitch):null;
       if (selected && b.radius > 0) {
         c.strokeStyle = '#ff9dd0';
         c.lineWidth = 1;
         c.strokeRect(x - r - 6, y - r - 6, r * 2 + 12, r * 2 + 12);
       }
-      if (b.radius > 0 || b.kind === 'star') {
+      if(model){
+        r=Math.max(14,Math.min(72,(b.modelSize||1000)*this.scale));
+        c.drawImage(model,x-r,y-r,r*2,r*2);
+        if(selected){c.strokeStyle='#ff9dd0';c.lineWidth=1;c.strokeRect(x-r-4,y-r-4,r*2+8,r*2+8);}
+      } else if (b.radius > 0 || b.kind === 'star') {
         const globe = this.globeTextures.get(b, this.yaw, this.pitch, r > 150 && !this.pointers.size ? 384 : 256);
         if (globe) {
           c.drawImage(globe, x - r, y - r, r * 2, r * 2);

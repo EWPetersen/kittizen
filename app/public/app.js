@@ -18,8 +18,8 @@ let catalog, bodies, map, catalogRevision = null,
   selected = null,
   loadGeneration = 0,
   reportFraction = .5;
-let currentShard = localStorage.getItem('kittizen-shard') || '';
-if (!/^(US|EU|AUS|ASIA)-[0-9]{3}$/.test(currentShard)) currentShard = '';
+// Shards change between game sessions: require an explicit choice on each visit.
+let currentShard = '';
 const api = async (path, data) => {
   let response = await fetch('/api/' + path, data ? {
     method: 'POST',
@@ -150,7 +150,6 @@ $('#shard-form').onsubmit = e => {
   let s = $('#shard-region').value + '-' + $('#shard').value.trim();
   if (!/^(US|EU|AUS|ASIA)-[0-9]{3}$/.test(s)) return toast('Choose a region and enter exactly three digits');
   currentShard = s;
-  localStorage.setItem('kittizen-shard', s);
   reports = [];
   renderReports();
   map.reports = [];
@@ -259,6 +258,7 @@ function selectBody(b, focus = true) {
   const parent = bodies.find(p => p.id === b.parent);
   root.replaceChildren(el('h3', b.name), el('small', b.kind.toUpperCase() + (parent ? ' · ' + parent.name : '')));
   if(b.kind==='om')root.append(el('p','Derived orbital position; OM numbering is approximate.','hint'));
+  if(b.model)root.append(el('p','Extracted game starmap model.','hint'));
   let actions = el('div', undefined, 'inline');
   for (let [id, label] of [
       ['origin', 'Depart here'],
@@ -568,7 +568,7 @@ async function start() {
     };
     $('#zoom-in').onclick = () => map.zoom(1.6);
     $('#zoom-out').onclick = () => map.zoom(1 / 1.6);
-    $('#shard-region').value = currentShard ? currentShard.split('-')[0] : 'US';
+    $('#shard-region').value = currentShard ? currentShard.split('-')[0] : '';
     $('#shard').value = currentShard ? currentShard.split('-')[1] : '';
     $('#map-shard').textContent = currentShard || 'NO SHARD';
     search();

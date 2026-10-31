@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {StarMap} from '../public/map.js';
 import {globePixels,inverseRotate} from '../public/sphere.js';
 import {positionOnRoute} from '../public/route.js';
+import {modelFaces,MapModels} from '../public/models.js';
 import fs from 'node:fs';
 const catalog=JSON.parse(fs.readFileSync(new URL('../public/catalog.json',import.meta.url),'utf8'));
 globalThis.ResizeObserver=class{observe(){}};globalThis.requestAnimationFrame=()=>{};globalThis.devicePixelRatio=1;
@@ -15,6 +16,15 @@ test('universe has three distinct system discs and no physical-body mixture',()=
 test('zooming out returns to universe',()=>{const {map}=fixture();map.zoom(.1);assert.equal(map.system,'universe');});
 test('double-click an available gate travels to its destination',()=>{const {map,events}=fixture();const gate=catalog.bodies.find(b=>b.kind==='gateway'&&b.system==='stanton'&&b.destinationSystem==='pyro');map.center=[...gate.position];map.span=1e6;map.draw();const hit=map.hits.find(h=>h.body?.id===gate.id);assert.ok(hit);events.dblclick({clientX:hit.x,clientY:hit.y});assert.equal(map.system,'pyro');});
 test('globe inverse rotation preserves game quaternion orientation',()=>{const p=inverseRotate([0,0,0,1],[1,2,3]);assert.deepEqual(p,[-1,-2,3]);});
+test('actual station models are bounded, shared and rotate with the map camera',()=>{
+ const bodies=catalog.bodies.filter(b=>b.model);assert.ok(bodies.some(b=>b.kind==='comm'));assert.ok(bodies.some(b=>b.name==='Port Tressler'));
+ const paths=new Set(bodies.map(b=>b.model));assert.ok(paths.size<bodies.length);
+ for(const path of paths){const mesh=JSON.parse(fs.readFileSync(new URL('../public/'+path,import.meta.url),'utf8'));assert.ok(mesh.triangles.length>0&&mesh.triangles.length<10000);const a=modelFaces(mesh,[1,0,0,0],0,-.7),b=modelFaces(mesh,[1,0,0,0],1,-.7);assert.notDeepEqual(a[0].points,b[0].points);assert.ok(a.every(f=>Number.isFinite(f.depth)&&f.points.every(p=>p.every(Number.isFinite))));}
+});
+test('model requests are shared and a failed model keeps the fallback without retry loops',async()=>{
+ let requests=0,invalidations=0;const models=new MapModels(()=>invalidations++,async()=>{requests++;throw Error('offline');});
+ const body={model:'shared.json'};assert.equal(models.get(body,0,0),null);assert.equal(models.get(body,1,0),null);await new Promise(resolve=>setImmediate(resolve));assert.equal(requests,1);assert.equal(invalidations,1);assert.ok(models.failures.has('shared.json'));assert.equal(models.get(body,0,0),null);assert.equal(requests,1);
+});
 test('globe preserves the original texture colours and round mask',()=>{const texture={width:8,height:4,data:new Uint8ClampedArray(8*4*4)};for(let i=0;i<32;i++){texture.data[i*4]=255;texture.data[i*4+3]=255;}const image=globePixels(texture,[1,0,0,0],0,0,16);assert.equal(image[3],0);const at=(8*16+8)*4;assert.ok(image[at]>0);assert.equal(image[at+1],0);assert.equal(image[at+2],0);assert.equal(image[at+3],255);});
 test('route fraction never interpolates between different coordinate frames',()=>{const plan={totalDistance:20,legs:[{kind:'quantum',system:'stanton',offset:0,distance:10,start:[0,0,0],end:[10,0,0]},{kind:'jump',system:'stanton',toSystem:'pyro',offset:10,distance:0,start:[10,0,0],end:[10000,0,0]},{kind:'quantum',system:'pyro',offset:10,distance:10,start:[0,0,0],end:[0,10,0]}]};assert.deepEqual(positionOnRoute(plan,.75).position,[0,5,0]);assert.equal(positionOnRoute(plan,.75).system,'pyro');assert.equal(positionOnRoute(plan,NaN),null);});
 test('ordinary drag rotates the globe instead of translating its center',()=>{const {map,events}=fixture();map.focus(catalog.bodies.find(b=>b.name==='microTech'));const center=[...map.center],yaw=map.yaw;events.pointerdown({pointerId:1,button:0,clientX:300,clientY:300});events.pointermove({pointerId:1,clientX:380,clientY:320});events.pointerup({pointerId:1,button:0,clientX:380,clientY:320});assert.notEqual(map.yaw,yaw);assert.deepEqual(map.center,center);});

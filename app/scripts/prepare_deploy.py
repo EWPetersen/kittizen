@@ -3,7 +3,7 @@ import hashlib,importlib.util,json,shutil,tempfile
 from pathlib import Path
 APP=Path(__file__).resolve().parents[1]
 BACKEND=('server.py','routing.py','database.py')
-STATIC=('index.html','style.css','app.js','map.js','sphere.js','route.js','heatmap.js','catalog.json')
+STATIC=('index.html','style.css','app.js','map.js','sphere.js','models.js','route.js','heatmap.js','catalog.json')
 TEMPLATES=('api/index.py','vercel.json','requirements.txt','pyproject.toml','.env.example','.python-version','.vercelignore','schema.sql','verify_deploy.py')
 
 def prepare(source,destination):
@@ -16,6 +16,7 @@ def prepare(source,destination):
     public=source/'public'
     catalog=json.loads((public/'catalog.json').read_text(encoding='utf-8'))
     assets={body['texture'] for body in catalog['bodies'] if body.get('texture')}
+    assets.update(body['model'] for body in catalog['bodies'] if body.get('model'))
     for name in set(STATIC)|assets:
         if Path(name).is_absolute() or '..' in Path(name).parts:
             raise ValueError('Invalid catalogue asset path')
