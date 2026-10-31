@@ -9,11 +9,16 @@ def verify(root=ROOT):
     for path in root.rglob('*'):
         if not path.is_file(): continue
         name=path.relative_to(root).as_posix()
-        if name.startswith(('.vercel/','.git/','.venv/','__pycache__/','api/__pycache__/')): continue
+        if name.startswith(('.vercel/','.git/','.venv/','.vercel_python_packages/','__pycache__/','api/__pycache__/')): continue
         if name not in allowed: raise ValueError('Unexpected deployment file: '+name)
     for name,digest in manifest.items():
         path=root/name
-        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=digest:
+        if not path.is_file(): raise ValueError('Missing deployment file: '+name)
+        raw=path.read_bytes()
+        if name=='vercel.json':
+            config=json.loads(raw)
+            raw=json.dumps({k:config[k] for k in ('$schema','framework','buildCommand','outputDirectory','functions','rewrites','headers') if k in config},sort_keys=True,separators=(',',':')).encode()
+        if hashlib.sha256(raw).hexdigest()!=digest:
             raise ValueError('Missing or changed deployment file: '+name)
     catalog=json.loads((root/'public/catalog.json').read_text(encoding='utf-8'))
     for body in catalog['bodies']:

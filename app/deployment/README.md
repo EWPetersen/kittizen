@@ -55,7 +55,11 @@ Google setup is described in `app/README.md`. A `vercel.app` address works for t
 - `scripts/test_hosted.py` passed through the Vercel handler against real local Postgres: two pilots, confirmation, own/duplicate vote rejection, profile privacy, case-insensitive handle collisions, mocked Google linking and nonce replay, and persistence after replacing the handler instance.
 - The generated upload was checked for completeness and absence of local data.
 
-No Supabase or Vercel project has been created or deployed. Hosted HTTPS, pooler behavior and redeploy persistence still require the actual accounts and deployment.
+The beta is deployed at https://kittizen-sand.vercel.app using the Vercel `kittizen` project and Supabase `kittizen-beta`. The schema is initialized with RLS enabled. Live HTTPS tests passed on 2026-10-31: two pilots, reporting, own/duplicate vote rejection, confirmation and profile stats, shard isolation, profile privacy, saved-route ownership, POI routing, invalid input and logout. A fresh deployment preserved the data and an existing session. The mobile navigation/system selection was checked at 390 x 844. Google SSO remains unconfigured and was not tested live.
+
+The connected GitHub repository contains source only; generated game data stays outside the public repository. Publish the prepared package with the CLI. Git-triggered builds are set to **Don't build anything** because the repository root contains the older prototype. CLI publishing remains enabled and tested. The production alias is publicly reachable; unique preview/deployment URLs retain Vercel's existing protection.
+
+To repeat the beta smoke test, run `python app/scripts/test_live_beta.py --base https://kittizen-sand.vercel.app`. This creates two QA accounts and one clearly marked report on US-999 that expires after two hours. It deletes nothing. Test credentials stay in ignored `.host-tests/`. Run again with `--resume` after redeploying to check existing data and sessions.
 
 For repeatable database testing, use a fresh disposable Postgres database, apply `schema.sql`, set `KITTIZEN_DATABASE_URL` and `KITTIZEN_TEST_POSTGRES` to that same database URI, install the optional Postgres driver, then run:
 

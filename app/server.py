@@ -227,8 +227,12 @@ def committed_response(method):
         self._pending_json = None
         try:
             method(self)
-        except Exception:
+        except Exception as error:
             # Database/network failures must never include connection strings or SQL.
+            print('Request failed:', type(error).__name__, 'SQLSTATE:', getattr(error, 'sqlstate', None), file=sys.stderr)
+            detail = str(error).lower()
+            categories = ('password authentication failed', 'tenant or user not found', 'could not translate host name', 'timeout expired', 'connection refused', 'invalid percent-encoded token', 'ssl connection')
+            print('Connection category:', next((item for item in categories if item in detail), 'unclassified'), file=sys.stderr)
             self._pending_json = ({"error":"Service temporarily unavailable. Please retry."},503,None)
         finally:
             self._defer_json = False

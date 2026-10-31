@@ -1,4 +1,4 @@
-import importlib.util,json,os,sqlite3,sys,tempfile,threading,unittest,urllib.request,urllib.error
+import importlib.util,json,os,sqlite3,sys,tempfile,threading,tomllib,unittest,urllib.request,urllib.error
 from pathlib import Path
 from unittest.mock import patch
 import server,database
@@ -7,6 +7,20 @@ sys.path.insert(0,str(ROOT/'scripts'))
 from prepare_deploy import prepare
 
 class DeploymentTests(unittest.TestCase):
+    def test_hosted_runtime_dependencies_and_catalogue_are_declared(self):
+        config=json.loads((ROOT/'deployment/vercel.json').read_text())
+        self.assertEqual(config['functions']['api/index.py']['includeFiles'],'public/catalog.json')
+        project=tomllib.loads((ROOT/'deployment/pyproject.toml').read_text())
+        self.assertIn('psycopg[binary]==3.3.6',project['project']['dependencies'])
+    def test_provider_metadata_allowed_but_application_config_protected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            target=Path(temp)/'deploy';prepare(ROOT,target)
+            spec=importlib.util.spec_from_file_location('verify_metadata',target/'verify_deploy.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+            vendor=target/'.vercel_python_packages';vendor.mkdir();(vendor/'.lock').write_text('generated')
+            path=target/'vercel.json';config=json.loads(path.read_text());config['providerMetadata']={'generated':True};path.write_text(json.dumps(config))
+            module.verify(target)
+            config['outputDirectory']='other';path.write_text(json.dumps(config))
+            with self.assertRaisesRegex(ValueError,'changed'):module.verify(target)
     def test_sql_translation_and_rows(self):
         self.assertEqual(database.postgres_sql("SELECT user FROM votes WHERE user=? AND value='user?'") , "SELECT \"user\" FROM votes WHERE \"user\"=%s AND value='user?'")
         row=database.Row(a=3,b='x');self.assertEqual(row[0],3);self.assertEqual(dict(row),{'a':3,'b':'x'})

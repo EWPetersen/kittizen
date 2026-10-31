@@ -6,6 +6,7 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 30,
+      "includeFiles": "public/catalog.json",
       "excludeFiles": "{public/game-assets/**,tests/**,.host-tests/**,storage/**,*.md}"
     }
   },

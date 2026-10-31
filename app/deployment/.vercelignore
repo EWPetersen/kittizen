@@ -1,0 +1,5 @@
+.env*
+!.env.example
+.gitignore
+__pycache__/
+api/__pycache__/

@@ -4,7 +4,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1]
 BACKEND=('server.py','routing.py','database.py')
 STATIC=('index.html','style.css','app.js','map.js','sphere.js','route.js','heatmap.js','catalog.json')
-TEMPLATES=('api/index.py','vercel.json','requirements.txt','pyproject.toml','.env.example','schema.sql','verify_deploy.py')
+TEMPLATES=('api/index.py','vercel.json','requirements.txt','pyproject.toml','.env.example','.python-version','.vercelignore','schema.sql','verify_deploy.py')
 
 def prepare(source,destination):
     destination.mkdir(parents=True,exist_ok=False)
@@ -24,6 +24,7 @@ def prepare(source,destination):
         target=destination/'public'/name;target.parent.mkdir(parents=True,exist_ok=True)
         shutil.copy2(path,target)
     manifest={p.relative_to(destination).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in destination.rglob('*') if p.is_file()}
+    manifest['vercel.json']=hashlib.sha256(json.dumps(json.loads((destination/'vercel.json').read_text()),sort_keys=True,separators=(',',':')).encode()).hexdigest()
     (destination/'deployment-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n',encoding='utf-8')
     return len(manifest)
 
@@ -31,7 +32,7 @@ def main():
     destination=APP/'deploy'
     if destination.exists() and (destination.is_symlink() or not (destination/'deployment-manifest.json').is_file()):
         raise SystemExit('Refusing to replace an unrecognized deploy folder.')
-    with tempfile.TemporaryDirectory(prefix='.deploy-',dir=APP) as temp:
+    with tempfile.TemporaryDirectory(prefix='kittizen-deploy-') as temp:
         staging=Path(temp)/'package'
         count=prepare(APP,staging)
         spec=importlib.util.spec_from_file_location('verify_package',staging/'verify_deploy.py')
