@@ -1,7 +1,7 @@
 globalThis.ImageData=class{constructor(data,width,height){Object.assign(this,{data,width,height})}};
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {StarMap} from '../public/map.js';
+import {StarMap,layoutLabels} from '../public/map.js';
 globalThis.ResizeObserver=class{observe(){}};
 let frames=[];globalThis.requestAnimationFrame=f=>frames.push(f);globalThis.devicePixelRatio=3;
 const scaleLabel={textContent:''};globalThis.document={createElement:()=>({getContext:()=>({putImageData(){}})}),querySelector:()=>scaleLabel};
@@ -27,4 +27,10 @@ test('focus animates without jumping, settles exactly and stops rendering',()=>{
  map.advanceCamera(move.time+move.duration);assert.equal(map.transition,null);assert.deepEqual(map.center,bodies[0].position);assert.equal(map.span,2.8e6);
  map.focus(bodies[1]);map.pan(10,0);assert.equal(map.transition,null);
  globalThis.matchMedia=()=>({matches:true});map.focus(bodies[0]);assert.equal(map.transition,null);delete globalThis.matchMedia;
+});
+test('labels prioritize selection, stay within bounds and retain anchors during small movement',()=>{
+ const candidates=Array.from({length:45},(_,i)=>({id:String(i),x:150+(i%5)*10,y:200+Math.floor(i/5)*10,r:4,width:90,priority:i===44?0:4}));
+ const first=layoutLabels(candidates,390,700);assert.equal(first.placed[0].item.id,'44');
+ for(const b of first.placed){assert.ok(b.x>=8&&b.y>=8&&b.x+b.w<=382&&b.y+b.h<=692);for(const a of first.placed)if(a!==b)assert.ok(a.x+a.w<=b.x||b.x+b.w<=a.x||a.y+a.h<=b.y||b.y+b.h<=a.y);}
+ const moved=layoutLabels(candidates.map(c=>({...c,x:c.x+.2,y:c.y+.2})),390,700,first.anchors);assert.equal(moved.anchors.get('44'),first.anchors.get('44'));assert.ok(moved.placed.length<=28);
 });

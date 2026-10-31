@@ -2,6 +2,24 @@ import {
   GlobeTextures
 } from './sphere.js';
 import {activityWeight,heatField,heatPixels} from './heatmap.js';
+// Stable candidate order and remembered anchor choices reduce label swapping while orbiting.
+export function layoutLabels(candidates,width,height,previous=new Map()) {
+  const placed=[],anchors=new Map();
+  const overlaps=(a,b)=>a.x<b.x+b.w+5&&a.x+a.w+5>b.x&&a.y<b.y+b.h+4&&a.y+a.h+4>b.y;
+  for(const item of [...candidates].sort((a,b)=>a.priority-b.priority||a.id.localeCompare(b.id))){
+    if(item.x<0||item.x>width||item.y<0||item.y>height)continue;
+    const w=Math.min(item.width+10,width-16),h=19,gap=Math.min(item.r,32)+9;
+    const positions=[[gap,-9],[-w-gap,-9],[-w/2,-gap-h],[-w/2,gap]];
+    const order=[previous.get(item.id),0,1,2,3].filter((n,i,a)=>n!==undefined&&a.indexOf(n)===i);
+    for(const index of order){
+      const [dx,dy]=positions[index];const box={x:Math.max(8,Math.min(width-w-8,item.x+dx)),y:Math.max(8,Math.min(height-h-8,item.y+dy)),w,h,item};
+      if(placed.some(other=>overlaps(box,other)))continue;
+      placed.push(box);anchors.set(item.id,index);break;
+    }
+    if(placed.length>=28)break;
+  }
+  return {placed,anchors};
+}
 // Demand-rendered orthographic 3D map. Doubles retain metre coordinates;
 // the camera origin is subtracted before projection. No GPU or asset downloads.
 export class StarMap {
@@ -296,7 +314,7 @@ export class StarMap {
     let rect = this.canvas.getBoundingClientRect(),
       x = e.clientX - rect.left,
       y = e.clientY - rect.top;
-    let hit = this.hits.filter(h => Math.hypot(h.x - x, h.y - y) < h.r).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
+    let hit = this.hits.filter(h => h.box ? x>=h.box.x&&x<=h.box.x+h.box.w&&y>=h.box.y&&y<=h.box.y+h.box.h : Math.hypot(h.x - x, h.y - y) < h.r).sort((a, b) => (a.box?-1:0)-(b.box?-1:0)||Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
     if (hit) {
       if (hit.body?.kind === 'system') this.setSystem(hit.body.id);
       else if (hit.body) this.onSelect(hit.body);
@@ -500,7 +518,7 @@ export class StarMap {
         }
       }
     } else if (this.route) line(this.route.map(b => b.position), '#a9dcff', 2, [7, 5]);
-    let labelBoxes = [];
+    const labels=[];
     const priority = b => b.kind === 'planet' ? 0 : b.kind === 'moon' ? 1 : b.kind === 'star' ? 2 : b.id === this.selected ? 99 : 4;
     const sorted = [...visibleBodies].sort((a, b) => priority(a) - priority(b));
     for (let b of sorted) {
@@ -527,16 +545,16 @@ export class StarMap {
         const globe = this.globeTextures.get(b, this.yaw, this.pitch, r > 150 && !this.pointers.size ? 384 : 256);
         if (globe) {
           c.drawImage(globe, x - r, y - r, r * 2, r * 2);
-          c.strokeStyle = '#d9e4e470';
+          c.strokeStyle = '#91e3f04d';
           c.lineWidth = 1;
           c.beginPath();
           c.arc(x, y, r, 0, Math.PI * 2);
           c.stroke();
         } else {
           let g = c.createRadialGradient(x - r * .35, y - r * .35, 1, x, y, r);
-          g.addColorStop(0, color);
-          g.addColorStop(.7, '#29474e');
-          g.addColorStop(1, '#102128');
+          g.addColorStop(0, '#6ac9daaa');
+          g.addColorStop(.7, '#245567b0');
+          g.addColorStop(1, '#438ca380');
           c.fillStyle = g;
           c.beginPath();
           c.arc(x, y, r, 0, Math.PI * 2);
@@ -544,12 +562,6 @@ export class StarMap {
           c.strokeStyle = color + '99';
           c.stroke();
         }
-        c.beginPath();
-        c.ellipse(x, y, r * .45, r, 0, 0, Math.PI * 2);
-        c.stroke();
-        c.beginPath();
-        c.ellipse(x, y, r, r * .35, 0, 0, Math.PI * 2);
-        c.stroke();
       } else {
         c.strokeStyle = selected ? '#ecf5f5' : color;
         c.lineWidth = selected ? 2 : 1;
@@ -568,17 +580,20 @@ export class StarMap {
         body: b
       });
       c.font = (major ? '11' : '9') + 'px Arial';
-      let w = c.measureText(b.name).width,
-        box = [Math.min(this.w - w - 8, x + r + 7), y - 7, w + 4, 16];
-      if (selected || !labelBoxes.some(a => a[0] < box[0] + box[2] && a[0] + a[2] > box[0] && a[1] < box[1] + box[3] && a[1] + a[3] > box[1])) {
-        c.fillStyle = '#081318c9';
-        c.fillRect(box[0] - 3, y - 9, w + 6, 17);
-        c.fillStyle = selected ? '#ffffff' : major ? '#d8e4e4' : '#c3d3d8';
-        c.fillText(b.name, box[0], y + 4);
-        labelBoxes.push(box);
-      }
+      let text=b.name;const limit=selected?190:145;
+      while(text.length>4&&c.measureText(text).width>limit)text=text.slice(0,-2);
+      if(text!==b.name)text+='…';
+      labels.push({id:b.id,x,y,r,text,width:c.measureText(text).width,body:b,selected,major,priority:selected?0:major?1:b.kind==='moon'?2:b.kind==='om'?3:4});
     }
     this.drawHeatmap();
+    const layout=layoutLabels(labels,this.w,this.h,this.labelAnchors);this.labelAnchors=layout.anchors;
+    for(const box of layout.placed){
+      const b=box.item;c.font=(b.major?'11':'9')+'px Arial';
+      c.strokeStyle=b.selected?'#aadff0aa':'#6c9da44d';c.lineWidth=.7;c.beginPath();c.moveTo(b.x,b.y);c.lineTo(Math.max(box.x,Math.min(box.x+box.w,b.x)),box.y+box.h/2);c.stroke();
+      c.fillStyle='#081623dc';c.fillRect(box.x,box.y,box.w,box.h);
+      c.fillStyle=b.selected?'#f1fbff':b.major?'#c2e8ee':'#9fc7d1';c.fillText(b.text,box.x+5,box.y+13);
+      this.hits.push({x:box.x+box.w/2,y:box.y+box.h/2,r:0,box,body:b.body});
+    }
     for (let r of this.reports) {
       if(!Number.isFinite(Number(r.created))||Date.now()/1000-Number(r.created)>=7200)continue;
       if ((r.system || 'stanton') !== this.system) continue;
