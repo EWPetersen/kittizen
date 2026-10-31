@@ -120,6 +120,7 @@ def init():
         CREATE TABLE IF NOT EXISTS votes(report TEXT REFERENCES reports(id),user TEXT REFERENCES users(id),value INTEGER,created REAL,PRIMARY KEY(report,user));
         CREATE TABLE IF NOT EXISTS identities(subject TEXT PRIMARY KEY,user TEXT UNIQUE REFERENCES users(id));
         CREATE TABLE IF NOT EXISTS auth_challenges(nonce TEXT PRIMARY KEY,expires REAL);
+        CREATE TABLE IF NOT EXISTS presence(viewer TEXT PRIMARY KEY,shard TEXT,system TEXT,seen REAL);
         CREATE TABLE IF NOT EXISTS routes(id TEXT PRIMARY KEY,user TEXT REFERENCES users(id),name TEXT,origin TEXT,destination TEXT,created REAL);
         """)
         columns = {r["name"] for r in db.execute("PRAGMA table_info(reports)")}
@@ -129,6 +130,17 @@ def init():
         ]:
             if name not in columns:
                 db.execute(f"ALTER TABLE reports ADD COLUMN {name} {definition}")
+
+
+@lru_cache(maxsize=1)
+def ensure_presence_schema():
+    """Additive hosted migration, once per worker; never exposes the table via Data API."""
+    if not os.environ.get('KITTIZEN_DATABASE_URL'):return
+    with connect() as db:
+        db.execute('SELECT pg_advisory_xact_lock(731908178)')
+        db.execute('CREATE TABLE IF NOT EXISTS presence(viewer TEXT PRIMARY KEY,shard TEXT,system TEXT,seen DOUBLE PRECISION)')
+        db.execute('ALTER TABLE presence ENABLE ROW LEVEL SECURITY')
+        db.execute('REVOKE ALL ON presence FROM PUBLIC')
 
 
 def trust(db, uid, now=None):
@@ -229,7 +241,7 @@ def request_cookies(header):
     seen = set()
     for part in header.split(';'):
         name = part.strip().partition('=')[0]
-        if name not in ('session', 'google_nonce'):
+        if name not in ('session', 'google_nonce', 'viewer'):
             continue
         if name in seen:
             owned.pop(name, None)
@@ -342,12 +354,13 @@ class Handler(BaseHTTPRequestHandler):
                             ]
                         )
                     if url.path == "/api/reports":
-                        s = shard(parse_qs(url.query).get("shard", [""])[0])
+                        universe = parse_qs(url.query).get("scope", [""])[0] == 'universe'
+                        s = None if universe else shard(parse_qs(url.query).get("shard", [""])[0])
                         now = time.time()
                         result = []
                         for r in db.execute(
-                            "SELECT r.*,u.handle FROM reports r JOIN users u ON u.id=r.user WHERE shard=? AND r.created>? ORDER BY created DESC LIMIT 200",
-                            (s, now - TTL),
+                            "SELECT r.*,u.handle FROM reports r JOIN users u ON u.id=r.user WHERE r.created>?" + ("" if universe else " AND shard=?") + " ORDER BY created DESC" + ("" if universe else " LIMIT 200"),
+                            (now-TTL,) if universe else (now-TTL,s),
                         ):
                             item = dict(r)
                             item["locationId"] = r["location_id"]
@@ -447,6 +460,21 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("Expected an object")
             with connect() as db:
                 u = self.user(db)
+                if path == '/api/presence':
+                    ensure_presence_schema()
+                    system = d.get('system')
+                    if system not in {'universe', *[s['id'] for s in CATALOG['systems']]}:
+                        raise ValueError('Unknown system')
+                    current = shard(d['shard']) if d.get('shard') else None
+                    cookies = request_cookies(self.headers.get('Cookie',''))
+                    token = cookies['viewer'].value if 'viewer' in cookies else secrets.token_urlsafe(32)
+                    if not re.fullmatch(r'[A-Za-z0-9_-]{43}',token):token=secrets.token_urlsafe(32)
+                    viewer = 'user:'+u['id'] if u else 'guest:'+hashlib.sha256(token.encode()).hexdigest()
+                    db.execute('DELETE FROM presence WHERE seen<?',(now-45,))
+                    db.execute('INSERT INTO presence VALUES(?,?,?,?) ON CONFLICT(viewer) DO UPDATE SET shard=excluded.shard,system=excluded.system,seen=excluded.seen',(viewer,current,system,now))
+                    total=db.execute('SELECT COUNT(*) FROM presence').fetchone()[0]
+                    count=total if system=='universe' else db.execute('SELECT COUNT(*) FROM presence WHERE shard=? AND system=?',(current,system)).fetchone()[0] if current else 0
+                    return self.reply(dict(total=total,count=count),cookie=f'viewer={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400'+('; Secure' if os.environ.get('KITTIZEN_SECURE_COOKIE')=='1' else ''))
                 if path == "/api/google":
                     if not GOOGLE_CLIENT_ID:
                         raise ValueError("Google sign-in is not configured yet")

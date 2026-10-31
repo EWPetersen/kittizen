@@ -150,6 +150,7 @@ $('#shard-form').onsubmit = e => {
   let s = $('#shard-region').value + '-' + $('#shard').value.trim();
   if (!/^(US|EU|AUS|ASIA)-[0-9]{3}$/.test(s)) return toast('Choose a region and enter exactly three digits');
   currentShard = s;
+  updatePresence();
   reports = [];
   renderReports();
   map.reports = [];
@@ -161,16 +162,18 @@ $('#shard-form').onsubmit = e => {
 async function loadReports() {
   const generation = ++loadGeneration,
     s = currentShard;
-  if (!s) {
+  const universe=map?.system==='universe',system=map?.system;
+  if (!s&&!universe) {
+    reports=[];
     $('#connection').textContent = 'SELECT A SHARD';
     renderReports();
     return;
   }
   try {
-    let list = await api('reports?shard=' + encodeURIComponent(s));
-    if (generation !== loadGeneration || s !== currentShard) return;
+    let list = await api(universe?'reports?scope=universe':'reports?shard=' + encodeURIComponent(s));
+    if (generation !== loadGeneration || s !== currentShard||system!==map.system) return;
     reports = list;
-    $('#connection').textContent = 'CONNECTED · ' + s;
+    $('#connection').textContent = universe?'ALL SHARDS · UNIVERSE':'CONNECTED · ' + s;
     renderReports();
   } catch (e) {
     if (generation !== loadGeneration) return;
@@ -181,7 +184,7 @@ async function loadReports() {
 
 function renderReports() {
   reports=reports.filter(r=>Number.isFinite(Number(r.created))&&Date.now()/1000-Number(r.created)<7200);
-  let shown = reports.filter(r => !$('#filter').value || r.kind === $('#filter').value);
+  let shown = reports.filter(r => (map?.system==='universe'||r.system===map?.system)&&(!$('#filter').value || r.kind === $('#filter').value));
   $('#reports').replaceChildren();
   $('#report-count').textContent = String(shown.length).padStart(2, '0');
   $('#mobile-count').textContent = reports.length || '';
@@ -194,12 +197,12 @@ function renderReports() {
     n.append(el('strong', currentShard ? 'No recent reports' : 'Choose your shard'), el('span', currentShard ? 'Nothing reported here in the last 2 hours. That does not mean the area is safe.' : 'Choose your region and shard number in Navigate to see activity from other pilots.'));
     $('#reports').append(n);
   }
-  for (let r of shown) {
+  for (let r of shown.slice(0,200)) {
     let card = el('article', undefined, 'report-card' + (r.kind === 'Clear' ? ' clear' : ''));
     let title = el('h3', (r.kind === 'Clear' ? '○ ' : '△ ') + r.kind),
       meta = el('div', undefined, 'meta');
     const pilot=el('button',r.handle,'text-button');pilot.onclick=()=>openProfile(r.handle);
-    meta.append(pilot,el('span',(r.system || 'stanton').toUpperCase()),el('span',ago(r.created)));
+    meta.append(pilot,el('span',(r.system || 'stanton').toUpperCase()+' · '+r.shard),el('span',ago(r.created)));
     let loc = el('button', r.location, 'loc');
     loc.onclick = () => focusActivity(r);
     const show=el('button',title.textContent,'text-button');
@@ -580,11 +583,13 @@ async function start() {
       if (!document.hidden) {
         renderReports();
         loadReports();
+        updatePresence();
         syncGame();
       }
     }, 15000);
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
+        updatePresence();
         renderReports();
         loadReports();
         syncGame();
@@ -655,6 +660,14 @@ function showSystem(id) {
   $('#map-subtitle').textContent = id === 'universe' ? 'Stanton · Pyro · Nyx — select a disc to explore.' : 'Extracted navigation · zoom out for universe · double-click a gate to travel';
   search();
   updateHeatLegend();
+  reports=[];renderReports();loadReports();updatePresence();
+}
+async function updatePresence(){
+  if(!map||document.hidden)return;
+  const system=map.system,shard=currentShard;
+  let label=$('#viewer-count');if(!label){label=el('small',undefined,'hint');label.id='viewer-count';$('#map-subtitle').after(label);}
+  try{const counts=await api('presence',{system,shard});if(system!==map.system||shard!==currentShard)return;label.textContent=system==='universe'?counts.total+' connected viewers · all shards':shard?counts.count+' connected viewers · '+shard+' / '+system:'Choose a shard to see its viewer count';}
+  catch{label.textContent='Viewer count unavailable';}
 }
 function updateHeatLegend(){
   $('#heat-scope').textContent=map?.system==='universe'?'System totals · select a disc for location detail':'Recent activity · follows the map camera';

@@ -33,6 +33,25 @@ class ProfileAuthTests(unittest.TestCase):
         self.request('logout',{})
         self.assertEqual(self.google()[0],200)
         self.assertEqual(self.request('me')[1]['user'],first)
+    def test_presence_scope_deduplication_and_expiry(self):
+        other=self.new_client()
+        self.assertEqual(self.request('presence',{'system':'stanton','shard':'US-007'})[1],dict(total=1,count=1))
+        self.assertEqual(self.request('presence',{'system':'stanton','shard':'US-007'})[1],dict(total=1,count=1))
+        self.assertEqual(self.request('presence',{'system':'pyro','shard':'US-007'},other)[1],dict(total=2,count=1))
+        self.assertEqual(self.request('presence',{'system':'universe','shard':''})[1],dict(total=2,count=2))
+        with server.connect() as db:db.execute('UPDATE presence SET seen=?',(time.time()-46,))
+        self.assertEqual(self.request('presence',{'system':'universe','shard':''})[1],dict(total=1,count=1))
+        self.assertEqual(self.request('presence',{'system':'bad','shard':''})[0],400)
+        self.assertEqual(self.request('presence',{'system':'stanton','shard':'bad'})[0],400)
+    def test_universe_reports_combine_shards_and_systems(self):
+        self.google()
+        bodies=list(server.BODIES.values())
+        for system,shard in [('stanton','US-007'),('pyro','EU-002')]:
+            body=next(b for b in bodies if b['system']==system and b['kind']=='planet')
+            self.assertEqual(self.request('reports',{'shard':shard,'kind':'Suspicious','location':body['id'],'notes':'QA aggregate test'})[0],201)
+        rows=self.request('reports?scope=universe',client=self.new_client())[1]
+        self.assertEqual({r['shard'] for r in rows},{'US-007','EU-002'})
+        self.assertEqual(len(self.request('reports?shard=US-007')[1]),1)
     def test_link_preserves_existing_pilot_and_blocks_account_collision(self):
         self.request('register',{'handle':'ExistingPilot','password':'test-password-only'})
         original=self.request('me')[1]['user']
