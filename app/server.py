@@ -219,6 +219,25 @@ def shard(value):
     return value
 
 
+def request_cookies(header):
+    """Parse our cookies independently of third-party cookies such as Google's g_state."""
+    owned = SimpleCookie()
+    seen = set()
+    for part in header.split(';'):
+        name = part.strip().partition('=')[0]
+        if name not in ('session', 'google_nonce'):
+            continue
+        if name in seen:
+            owned.pop(name, None)
+            continue
+        seen.add(name)
+        parsed = SimpleCookie()
+        parsed.load(part.strip())
+        if name in parsed:
+            owned[name] = parsed[name].value
+    return owned
+
+
 def committed_response(method):
     """Send JSON only after the request transaction has committed successfully."""
     @wraps(method)
@@ -263,8 +282,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(raw)
 
     def user(self, db):
-        c = SimpleCookie()
-        c.load(self.headers.get("Cookie", ""))
+        c = request_cookies(self.headers.get("Cookie", ""))
         token = c.get("session")
         return db.execute(
             "SELECT u.id,u.handle FROM users u JOIN sessions s ON s.user=u.id WHERE s.token=? AND s.expires>?",
@@ -430,8 +448,7 @@ class Handler(BaseHTTPRequestHandler):
                         raise ValueError("Google sign-in is not configured yet")
                     if not self.headers.get("Origin"):
                         return self.reply({"error":"Origin required"},403)
-                    cookies = SimpleCookie()
-                    cookies.load(self.headers.get("Cookie", ""))
+                    cookies = request_cookies(self.headers.get("Cookie", ""))
                     nonce = cookies["google_nonce"].value if "google_nonce" in cookies else ""
                     challenge = db.execute("SELECT 1 FROM auth_challenges WHERE nonce=? AND expires>?", (nonce,now)).fetchone()
                     if not challenge:
@@ -516,8 +533,7 @@ class Handler(BaseHTTPRequestHandler):
                         )
                     )
                 if path == "/api/logout":
-                    c = SimpleCookie()
-                    c.load(self.headers.get("Cookie", ""))
+                    c = request_cookies(self.headers.get("Cookie", ""))
                     db.execute(
                         "DELETE FROM sessions WHERE token=?",
                         (hashlib.sha256(c["session"].value.encode()).hexdigest(),),

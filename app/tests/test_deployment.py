@@ -7,6 +7,12 @@ sys.path.insert(0,str(ROOT/'scripts'))
 from prepare_deploy import prepare
 
 class DeploymentTests(unittest.TestCase):
+    def test_google_state_cookie_does_not_hide_session_or_nonce(self):
+        for header in ('g_state={"i_l":0}; session=abc; google_nonce=def', 'session=abc; g_state={"i_l":0}; google_nonce=def'):
+            cookies=server.request_cookies(header)
+            self.assertEqual(cookies['session'].value,'abc')
+            self.assertEqual(cookies['google_nonce'].value,'def')
+        self.assertNotIn('session',server.request_cookies('session=abc; session=other; session=third'))
     def test_hosted_runtime_dependencies_and_catalogue_are_declared(self):
         config=json.loads((ROOT/'deployment/vercel.json').read_text())
         self.assertEqual(config['functions']['api/index.py']['includeFiles'],'public/catalog.json')
@@ -67,6 +73,7 @@ class DeploymentTests(unittest.TestCase):
                 with urllib.request.urlopen(req) as response:
                     cookie=response.headers['Set-Cookie'];self.assertIn('HttpOnly',cookie)
                 with urllib.request.urlopen(urllib.request.Request(base+'/api/index?endpoint=profile',headers={'Cookie':cookie})) as response:self.assertTrue(json.load(response)['own'])
+                with urllib.request.urlopen(urllib.request.Request(base+'/api/index?endpoint=profile',headers={'Cookie':'g_state={"i_l":0}; '+cookie.split(';')[0]})) as response:self.assertTrue(json.load(response)['own'])
                 with self.assertRaises(urllib.error.HTTPError) as error:urllib.request.urlopen(base+'/api/index?endpoint=../../server.py')
                 self.assertEqual(error.exception.code,404)
             finally:http.shutdown();http.server_close();thread.join()
