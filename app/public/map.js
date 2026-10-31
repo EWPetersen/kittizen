@@ -3,20 +3,25 @@ import {
 } from './sphere.js';
 import {activityWeight,heatField,heatPixels} from './heatmap.js';
 // Stable candidate order and remembered anchor choices reduce label swapping while orbiting.
-export function layoutLabels(candidates,width,height,previous=new Map()) {
+export function labelPriority(body,selected=false) {
+  return body.kind==='planet'?0:body.kind==='star'?1:body.kind==='moon'?2:selected?3:body.kind==='gateway'?4:body.kind==='om'?5:6;
+}
+export function layoutLabels(candidates,width,height,previous=new Map(),obstacles=[]) {
   const placed=[],anchors=new Map();
   const overlaps=(a,b)=>a.x<b.x+b.w+5&&a.x+a.w+5>b.x&&a.y<b.y+b.h+4&&a.y+a.h+4>b.y;
-  for(const item of [...candidates].sort((a,b)=>a.priority-b.priority||a.id.localeCompare(b.id))){
-    if(item.x<0||item.x>width||item.y<0||item.y>height)continue;
-    const w=Math.min(item.width+10,width-16),h=19,gap=Math.min(item.r,32)+9;
-    const positions=[[gap,-9],[-w-gap,-9],[-w/2,-gap-h],[-w/2,gap]];
-    const order=[previous.get(item.id),0,1,2,3].filter((n,i,a)=>n!==undefined&&a.indexOf(n)===i);
+  const budget=width<500?8:16;
+  for(const item of [...candidates].sort((a,b)=>a.priority-b.priority||Number(previous.has(b.id))-Number(previous.has(a.id))||a.id.localeCompare(b.id))){
+    const offscreen=item.x<0||item.x>width||item.y<0||item.y>height;
+    if(offscreen&&(!item.major||item.x+item.r<0||item.x-item.r>width||item.y+item.r<0||item.y-item.r>height))continue;
+    const w=Math.min(item.width+14,width-16),h=item.major?23:20,gap=(item.major?Math.min(item.r,Math.min(width,height)*.4):Math.max(item.r,item.selected?20:14))+10;
+    const positions=[[gap,-h/2],[-w-gap,-h/2],[-w/2,-gap-h],[-w/2,gap],[gap,-h-18],[-w-gap,-h-18],[gap,18],[-w-gap,18]];
+    const order=[previous.get(item.id),0,1,2,3,4,5,6,7].filter((n,i,a)=>n!==undefined&&a.indexOf(n)===i);
     for(const index of order){
       const [dx,dy]=positions[index];const box={x:Math.max(8,Math.min(width-w-8,item.x+dx)),y:Math.max(8,Math.min(height-h-8,item.y+dy)),w,h,item};
-      if(placed.some(other=>overlaps(box,other)))continue;
+      if(placed.some(other=>overlaps(box,other))||obstacles.some(other=>overlaps(box,other)))continue;
       placed.push(box);anchors.set(item.id,index);break;
     }
-    if(placed.length>=28)break;
+    if(placed.length>=budget)break;
   }
   return {placed,anchors};
 }
@@ -51,7 +56,6 @@ export class StarMap {
       passive: false
     });
     canvas.addEventListener('pointerdown', e => {
-      this.transition = null;
       canvas.setPointerCapture(e.pointerId);
       this.pointers.set(e.pointerId, [e.clientX, e.clientY]);
       this.start = [e.clientX, e.clientY];
@@ -86,9 +90,15 @@ export class StarMap {
       const rect = canvas.getBoundingClientRect(),
         x = e.clientX - rect.left,
         y = e.clientY - rect.top;
-      const gate = this.hits.find(h => h.body?.kind === 'gateway' && Math.hypot(h.x - x, h.y - y) < h.r);
+      const recent=this.lastSelection;
+      const fallback=recent&&(e.timeStamp??performance.now())-recent.time<500&&Math.hypot(x-recent.x,y-recent.y)<14?recent:null;
+      const gate = this.hits.find(h => h.body?.kind === 'gateway' && Math.hypot(h.x - x, h.y - y) < h.r)||(fallback?.body.kind==='gateway'?fallback:null);
       if (gate && this.systems.some(s => s.id === gate.body.destinationSystem)) this.setSystem(gate.body.destinationSystem);
-      else this.zoom(1.8);
+      else {
+        const body=this.hits.find(h=>h.body&&h.body.kind!=='system'&&(h.box?x>=h.box.x&&x<=h.box.x+h.box.w&&y>=h.box.y&&y<=h.box.y+h.box.h:Math.hypot(h.x-x,h.y-y)<h.r))||fallback;
+        if(body)this.onSelect(body.body);
+        else if(!this.transition)this.zoom(1.8);
+      }
     });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
     canvas.addEventListener('keydown', e => {
@@ -110,6 +120,7 @@ export class StarMap {
   }
   camera() { return {center:[...this.center],span:this.span,yaw:this.yaw,pitch:this.pitch}; }
   flyTo(target) {
+    if(this.transition&&target.span===this.transition.target.span&&target.center.every((v,i)=>v===this.transition.target.center[i]))return;
     const start=this.camera();
     if (typeof matchMedia !== 'function' || matchMedia('(prefers-reduced-motion: reduce)').matches) {
       Object.assign(this,target);this.transition=null;this.invalidate();return;
@@ -120,9 +131,11 @@ export class StarMap {
   }
   advanceCamera(now) {
     const move=this.transition;if(!move)return;
-    const t=Math.min(1,Math.max(0,(now-move.time)/move.duration)),ease=t*t*(3-2*t),travel=1-(1-t)**4;
-    this.center=move.start.center.map((v,i)=>v+(move.target.center[i]-v)*travel);
+    const t=Math.min(1,Math.max(0,(now-move.time)/move.duration)),ease=t*t*(3-2*t);
     this.span=Math.exp(Math.log(move.start.span)*(1-ease)+Math.log(move.target.span)*ease);
+    // Keep the target's projected distance shrinking steadily as scale changes.
+    const remaining=(1-ease)*this.span/move.start.span;
+    this.center=move.target.center.map((v,i)=>v+(move.start.center[i]-v)*remaining);
     this.yaw=move.start.yaw+(move.target.yaw-move.start.yaw)*ease;
     this.pitch=move.start.pitch+(move.target.pitch-move.start.pitch)*ease;
     if(t===1){Object.assign(this,move.target);this.transition=null;}
@@ -130,6 +143,7 @@ export class StarMap {
   setBodies(bodies) {
     this.bodies = bodies;
     this.byId = new Map(bodies.map(b => [b.id, b]));
+    this.labelAnchors=new Map();this.labelVisibility=new Set();
   }
   drawHeatmap(now=Date.now()/1000){
     const points=this.reports.filter(r=>(r.system||'stanton')===this.system).map(r=>{
@@ -205,6 +219,7 @@ export class StarMap {
   setSystem(id) {
     if (id !== 'universe' && !this.systems.some(s => s.id === id)) return;
     this.system = id;
+    this.labelAnchors.clear();this.labelVisibility.clear();
     this.selected = null;
     this.home();
     this.onSystemChanged?.(id);
@@ -298,6 +313,7 @@ export class StarMap {
         dy = e.clientY - prev[1];
       if (Math.hypot(e.clientX - this.start[0], e.clientY - this.start[1]) > 5) this.moved = true;
       if (this.moved) {
+        this.transition = null;
         this.rightTap = null;
         if (!e.shiftKey && this.dragButton !== 2 && !(e.buttons & 2)) {
           this.yaw += dx * .006;
@@ -317,7 +333,7 @@ export class StarMap {
     let hit = this.hits.filter(h => h.box ? x>=h.box.x&&x<=h.box.x+h.box.w&&y>=h.box.y&&y<=h.box.y+h.box.h : Math.hypot(h.x - x, h.y - y) < h.r).sort((a, b) => (a.box?-1:0)-(b.box?-1:0)||Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
     if (hit) {
       if (hit.body?.kind === 'system') this.setSystem(hit.body.id);
-      else if (hit.body) this.onSelect(hit.body);
+      else if (hit.body) {this.lastSelection={body:hit.body,x,y,time:e.timeStamp??performance.now()};this.onSelect(hit.body);}
       else this.onRoute(hit.report.route?.fraction ?? .5, hit.report);
       return;
     }
@@ -501,6 +517,7 @@ export class StarMap {
         length: 97
       }, (_, i) => [p.position[0] + Math.cos(i * Math.PI / 48) * r, p.position[1] + Math.sin(i * Math.PI / 48) * r, p.position[2]]), '#35505a60');
     }
+    const labels=[];
     if (this.routePlan) {
       for (const segment of this.routePlan.legs.filter(l => l.kind !== 'jump' && l.system === this.system)) {
         line([segment.start, segment.end], segment.kind === 'local' ? '#e9c28d' : '#a9dcff', 2, [7, 5]);
@@ -512,13 +529,14 @@ export class StarMap {
           const [x, y] = this.project(p);
           c.strokeStyle = '#c9e7df';
           c.strokeRect(x - 4, y - 4, 8, 8);
-          c.fillStyle = '#e6f5ec';
-          c.font = '10px Arial';
-          c.fillText(name, x + 7, y - 5);
+          // Real catalogue OMs get their normal label; synthetic boundary labels
+          // share the same collision pass as planets and POIs.
+          if(!this.bodies.some(b=>b.system===this.system&&b.name===name)){
+            c.font='10px Arial';labels.push({id:'route:'+name,x,y,r:4,text:name,width:c.measureText(name).width,priority:4});
+          }
         }
       }
     } else if (this.route) line(this.route.map(b => b.position), '#a9dcff', 2, [7, 5]);
-    const labels=[];
     const priority = b => b.kind === 'planet' ? 0 : b.kind === 'moon' ? 1 : b.kind === 'star' ? 2 : b.id === this.selected ? 99 : 4;
     const sorted = [...visibleBodies].sort((a, b) => priority(a) - priority(b));
     for (let b of sorted) {
@@ -552,9 +570,9 @@ export class StarMap {
           c.stroke();
         } else {
           let g = c.createRadialGradient(x - r * .35, y - r * .35, 1, x, y, r);
-          g.addColorStop(0, '#6ac9daaa');
-          g.addColorStop(.7, '#245567b0');
-          g.addColorStop(1, '#438ca380');
+          g.addColorStop(0, color);
+          g.addColorStop(.7, '#29474e');
+          g.addColorStop(1, '#102128');
           c.fillStyle = g;
           c.beginPath();
           c.arc(x, y, r, 0, Math.PI * 2);
@@ -579,20 +597,31 @@ export class StarMap {
         r: Math.max(18, r + 6),
         body: b
       });
-      c.font = (major ? '11' : '9') + 'px Arial';
+      const prominent=major||b.kind==='moon';
+      const threshold=b.kind==='om'?35:100;
+      const pixels=parent?parent.radius*this.scale:Infinity;
+      const allowed=prominent||selected||pixels>(this.labelVisibility.has(b.id)?threshold*.82:threshold);
+      if(!allowed){this.labelVisibility.delete(b.id);continue;}
+      this.labelVisibility.add(b.id);
+      c.font = (prominent ? '12' : '10') + 'px Arial';
       let text=b.name;const limit=selected?190:145;
       while(text.length>4&&c.measureText(text).width>limit)text=text.slice(0,-2);
       if(text!==b.name)text+='…';
-      labels.push({id:b.id,x,y,r,text,width:c.measureText(text).width,body:b,selected,major,priority:selected?0:major?1:b.kind==='moon'?2:b.kind==='om'?3:4});
+      labels.push({id:b.id,x,y,r,text,width:c.measureText(text).width,body:b,selected,major:prominent,priority:labelPriority(b,selected)});
     }
     this.drawHeatmap();
-    const layout=layoutLabels(labels,this.w,this.h,this.labelAnchors);this.labelAnchors=layout.anchors;
+    const obstacles=[];
+    for(const overlay of document.querySelectorAll?.('.map-title,.map-controls,#heat-legend,#report,.map-bottom,.map-help')||[]){
+      const box=overlay.getBoundingClientRect();if(box.width&&box.height)obstacles.push({x:box.left-rect.left,y:box.top-rect.top,w:box.width,h:box.height});
+    }
+    for(const report of this.reports){if((report.system||'stanton')!==this.system)continue;const [x,y]=this.project(report.position);obstacles.push({x:x-17,y:y-17,w:34,h:34});}
+    const layout=layoutLabels(labels,this.w,this.h,this.labelAnchors,obstacles);this.labelAnchors=layout.anchors;
     for(const box of layout.placed){
-      const b=box.item;c.font=(b.major?'11':'9')+'px Arial';
+      const b=box.item;c.font=(b.major?'12':'10')+'px Arial';
       c.strokeStyle=b.selected?'#aadff0aa':'#6c9da44d';c.lineWidth=.7;c.beginPath();c.moveTo(b.x,b.y);c.lineTo(Math.max(box.x,Math.min(box.x+box.w,b.x)),box.y+box.h/2);c.stroke();
       c.fillStyle='#081623dc';c.fillRect(box.x,box.y,box.w,box.h);
-      c.fillStyle=b.selected?'#f1fbff':b.major?'#c2e8ee':'#9fc7d1';c.fillText(b.text,box.x+5,box.y+13);
-      this.hits.push({x:box.x+box.w/2,y:box.y+box.h/2,r:0,box,body:b.body});
+      c.fillStyle=b.selected?'#f1fbff':b.major?'#c2e8ee':'#9fc7d1';c.fillText(b.text,box.x+7,box.y+(b.major?16:14));
+      if(b.body)this.hits.push({x:box.x+box.w/2,y:box.y+box.h/2,r:0,box,body:b.body});
     }
     for (let r of this.reports) {
       if(!Number.isFinite(Number(r.created))||Date.now()/1000-Number(r.created)>=7200)continue;

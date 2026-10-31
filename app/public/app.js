@@ -252,7 +252,7 @@ function selectBody(b, focus = true) {
   if (map.system !== b.system && b.system) map.setSystem(b.system);
   selected = b;
   map.selected = b.id;
-  if (focus && b.kind !== 'gateway') map.focus(b);
+  if (focus) map.focus(b);
   $('#map-name').textContent = b.name;
   $('#map-subtitle').textContent = b.kind.toUpperCase() + ' / ' + (b.system || 'stanton').toUpperCase();
   let root = $('#selection');

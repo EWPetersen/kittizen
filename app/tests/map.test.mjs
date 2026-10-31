@@ -1,7 +1,7 @@
 globalThis.ImageData=class{constructor(data,width,height){Object.assign(this,{data,width,height})}};
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {StarMap,layoutLabels} from '../public/map.js';
+import {StarMap,layoutLabels,labelPriority} from '../public/map.js';
 globalThis.ResizeObserver=class{observe(){}};
 let frames=[];globalThis.requestAnimationFrame=f=>frames.push(f);globalThis.devicePixelRatio=3;
 const scaleLabel={textContent:''};globalThis.document={createElement:()=>({getContext:()=>({putImageData(){}})}),querySelector:()=>scaleLabel};
@@ -33,4 +33,25 @@ test('labels prioritize selection, stay within bounds and retain anchors during 
  const first=layoutLabels(candidates,390,700);assert.equal(first.placed[0].item.id,'44');
  for(const b of first.placed){assert.ok(b.x>=8&&b.y>=8&&b.x+b.w<=382&&b.y+b.h<=692);for(const a of first.placed)if(a!==b)assert.ok(a.x+a.w<=b.x||b.x+b.w<=a.x||a.y+a.h<=b.y||b.y+b.h<=a.y);}
  const moved=layoutLabels(candidates.map(c=>({...c,x:c.x+.2,y:c.y+.2})),390,700,first.anchors);assert.equal(moved.anchors.get('44'),first.anchors.get('44'));assert.ok(moved.placed.length<=28);
+});
+test('planets and moons precede selected POIs and route labels avoid overlay obstacles',()=>{
+ assert.ok(labelPriority({kind:'planet'})<labelPriority({kind:'moon'}));assert.ok(labelPriority({kind:'moon'})<labelPriority({kind:'poi'},true));
+ const labels=[{id:'poi',x:170,y:200,r:4,width:110,priority:labelPriority({kind:'poi'},true)},{id:'planet',x:180,y:200,r:30,width:80,major:true,priority:labelPriority({kind:'planet'})}];
+ const blocks=[{x:0,y:0,w:390,h:100},{x:300,y:100,w:90,h:150}];const result=layoutLabels(labels,390,700,new Map(),blocks);assert.equal(result.placed[0].item.id,'planet');
+ for(const a of result.placed)for(const b of blocks)assert.ok(a.x+a.w<=b.x||a.x>=b.x+b.w||a.y+a.h<=b.y||a.y>=b.y+b.h);
+});
+test('a selected POI label clears its activity marker rather than disappearing',()=>{
+ const item={id:'poi',x:195,y:350,r:4,width:90,priority:3,selected:true};const result=layoutLabels([item],390,700,new Map(),[{x:178,y:333,w:34,h:34}]);assert.equal(result.placed.length,1);assert.equal(result.placed[0].item.id,'poi');
+});
+test('zoom focus converges without throwing the target around and repeated focus keeps its timing',()=>{
+ const {map,bodies}=fixture();globalThis.matchMedia=()=>({matches:false});map.focus(bodies[0]);const move=map.transition;let last=Infinity;
+ for(const fraction of [0,.1,.25,.5,.75,.9]){map.advanceCamera(move.time+move.duration*fraction);map.draw();const point=map.project(bodies[0].position);const distance=Math.hypot(point[0]-map.w/2,point[1]-map.h/2);assert.ok(distance<=last+.0001);last=distance;}
+ map.focus(bodies[0]);assert.equal(map.transition,move);delete globalThis.matchMedia;
+});
+test('double click keeps a focus animation for each celestial object type',()=>{
+ for(const kind of ['planet','moon','star','gateway','om']){
+  const f=fixture(),body={...f.bodies[0],kind};f.map.setBodies([body]);f.map.hits=[{body,x:120,y:180,r:20}];f.map.onSelect=b=>f.map.focus(b);globalThis.matchMedia=()=>({matches:false});
+  f.map.click({clientX:120,clientY:180,timeStamp:100});const move=f.map.transition;f.map.advanceCamera(move.time+100);f.map.hits=[];
+  f.events.dblclick({clientX:120,clientY:180,timeStamp:250});assert.equal(f.map.transition,move,kind);delete globalThis.matchMedia;
+ }
 });

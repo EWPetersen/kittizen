@@ -15,7 +15,7 @@ test('universe has three distinct system discs and no physical-body mixture',()=
 test('zooming out returns to universe',()=>{const {map}=fixture();map.zoom(.1);assert.equal(map.system,'universe');});
 test('double-click an available gate travels to its destination',()=>{const {map,events}=fixture();const gate=catalog.bodies.find(b=>b.kind==='gateway'&&b.system==='stanton'&&b.destinationSystem==='pyro');map.center=[...gate.position];map.span=1e6;map.draw();const hit=map.hits.find(h=>h.body?.id===gate.id);assert.ok(hit);events.dblclick({clientX:hit.x,clientY:hit.y});assert.equal(map.system,'pyro');});
 test('globe inverse rotation preserves game quaternion orientation',()=>{const p=inverseRotate([0,0,0,1],[1,2,3]);assert.deepEqual(p,[-1,-2,3]);});
-test('holographic globe keeps a round mask, translucent cyan tint and texture contrast',()=>{const texture={width:8,height:4,data:new Uint8ClampedArray(8*4*4)};for(let i=0;i<32;i++){texture.data[i*4]=255;texture.data[i*4+3]=255;}const image=globePixels(texture,[1,0,0,0],0,0,16);assert.equal(image[3],0);const at=(8*16+8)*4;assert.ok(image[at+2]>image[at+1]&&image[at+1]>image[at]);assert.equal(image[at+3],205);texture.data.fill(0);const dark=globePixels(texture,[1,0,0,0],0,0,16);assert.ok(image[at+1]>dark[at+1]);});
+test('globe preserves the original texture colours and round mask',()=>{const texture={width:8,height:4,data:new Uint8ClampedArray(8*4*4)};for(let i=0;i<32;i++){texture.data[i*4]=255;texture.data[i*4+3]=255;}const image=globePixels(texture,[1,0,0,0],0,0,16);assert.equal(image[3],0);const at=(8*16+8)*4;assert.ok(image[at]>0);assert.equal(image[at+1],0);assert.equal(image[at+2],0);assert.equal(image[at+3],255);});
 test('route fraction never interpolates between different coordinate frames',()=>{const plan={totalDistance:20,legs:[{kind:'quantum',system:'stanton',offset:0,distance:10,start:[0,0,0],end:[10,0,0]},{kind:'jump',system:'stanton',toSystem:'pyro',offset:10,distance:0,start:[10,0,0],end:[10000,0,0]},{kind:'quantum',system:'pyro',offset:10,distance:10,start:[0,0,0],end:[0,10,0]}]};assert.deepEqual(positionOnRoute(plan,.75).position,[0,5,0]);assert.equal(positionOnRoute(plan,.75).system,'pyro');assert.equal(positionOnRoute(plan,NaN),null);});
 test('ordinary drag rotates the globe instead of translating its center',()=>{const {map,events}=fixture();map.focus(catalog.bodies.find(b=>b.name==='microTech'));const center=[...map.center],yaw=map.yaw;events.pointerdown({pointerId:1,button:0,clientX:300,clientY:300});events.pointermove({pointerId:1,clientX:380,clientY:320});events.pointerup({pointerId:1,button:0,clientX:380,clientY:320});assert.notEqual(map.yaw,yaw);assert.deepEqual(map.center,center);});
 test('wheel can enter a system from universe and focus a planet',()=>{const {map,events}=fixture();map.setSystem('universe');map.draw();let hit=map.hits.find(h=>h.body.id==='stanton');events.wheel({deltaY:-1000,clientX:hit.x,clientY:hit.y,preventDefault(){}});assert.equal(map.system,'stanton');map.draw();hit=map.hits.find(h=>h.body?.name==='microTech');events.wheel({deltaY:-300,clientX:hit.x,clientY:hit.y,preventDefault(){}});assert.ok(map.span<1e7);assert.equal(map.selected,hit.body.id);});
@@ -32,6 +32,16 @@ test('every planet and moon has six selectable, focusable OM markers',()=>{
 });
 test('focusing a moon centers the moon rather than its planet',()=>{
  const {map}=fixture();for(const body of catalog.bodies.filter(b=>b.kind==='moon')){map.setSystem(body.system);map.focus(body);assert.deepEqual(map.center,body.position);assert.equal(map.span,body.radius*2.8);}
+});
+test('labels remain bounded and non-overlapping over zoom and rotation sweeps',()=>{
+ const {map}=fixture();for(const system of ['stanton','pyro','nyx']){
+  map.setSystem(system);const planet=catalog.bodies.find(b=>b.system===system&&b.kind==='planet');map.center=[...planet.position];
+  for(const span of [map.systemSpan,planet.radius*30,planet.radius*8,planet.radius*2.8])for(let i=0;i<12;i++){
+   map.span=span;map.yaw=i*Math.PI/6;map.pitch=-1.3+i*.2;map.draw();const boxes=map.hits.filter(h=>h.box).map(h=>h.box);
+   for(const a of boxes){assert.ok(a.x>=8&&a.y>=8&&a.x+a.w<=map.w-8&&a.y+a.h<=map.h-8);for(const b of boxes)if(a!==b)assert.ok(a.x+a.w<=b.x||a.x>=b.x+b.w||a.y+a.h<=b.y||a.y>=b.y+b.h);}
+   assert.ok(boxes.some(b=>b.item.id===planet.id),system+' planet label must survive POI density');
+  }
+ }
 });
 test('surface activity focuses the POI hemisphere and its exact marker',()=>{
  const {map}=fixture();for(const name of ['New Babbage','Lorville','Jumptown']){

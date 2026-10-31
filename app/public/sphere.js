@@ -34,13 +34,8 @@ export function globePixels(texture, rotation, yaw, pitch, size = 256) {
       const source = (ty * texture.width + tx) * 4,
         target = (y * size + x) * 4;
       const light = .57 + .43 * Math.max(0, -u * .28 - v * .32 + depth * .82);
-      const luminance=texture.data[source]*.2126+texture.data[source+1]*.7152+texture.data[source+2]*.0722;
-      const rim=(1-depth)**3, scan=y%3===0?.94:1;
-      const terrain=(.18+luminance/255*.82)*light*scan;
-      pixels[target]=28+terrain*50+rim*35;
-      pixels[target+1]=60+terrain*126+rim*58;
-      pixels[target+2]=76+terrain*143+rim*65;
-      pixels[target + 3] = Math.min(205, (1 - r2) * size * 115);
+      for (let channel = 0; channel < 3; channel++) pixels[target + channel] = texture.data[source + channel] * light;
+      pixels[target + 3] = Math.min(255, (1 - r2) * size * 150);
     }
   return pixels;
 }
