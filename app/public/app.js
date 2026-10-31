@@ -278,7 +278,7 @@ function selectBody(b, focus = true) {
       button = el('button', available ? 'Travel to ' + map.systems.find(s => s.id === b.destinationSystem).name : 'Destination not installed');
     button.disabled = !available;
     button.onclick = () => {
-      map.setSystem(b.destinationSystem);
+      jumpToSystem(b.destinationSystem);
       panel('map-area');
     };
     root.append(button);
@@ -549,6 +549,7 @@ async function start() {
     }];
     map.onSystemChanged = showSystem;
     $('#system-picker').replaceChildren(option('universe', 'Universe · all systems'), ...map.systems.map(s => option(s.id, s.name)));
+    map.onJump=jumpToSystem;
     $('#system-picker').onchange = () => map.setSystem($('#system-picker').value);
     $('#universe').onclick = () => map.setSystem('universe');
     map.setSystem('universe');
@@ -632,6 +633,18 @@ async function syncGame() {
   } catch (e) {
     $('#provenance').textContent = 'Patch status unavailable · using loaded map';
   }
+}
+
+let jumping=false;
+async function jumpToSystem(id) {
+  if(jumping||id===map.system||!map.systems.some(s=>s.id===id))return;
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){map.setSystem(id);return;}
+  jumping=true;
+  const source=map.system, overlay=el('div',undefined,'wormhole'),tunnel=el('div',undefined,'wormhole-tunnel');
+  overlay.setAttribute('aria-hidden','true');overlay.append(tunnel);$('#map-area').append(overlay);
+  const animation=overlay.animate([{opacity:0},{opacity:1,offset:.25},{opacity:1,offset:.65},{opacity:0}],{duration:760,easing:'ease-in-out'});
+  const travel=setTimeout(()=>{if(map.system===source)map.setSystem(id);},380);
+  try{await animation.finished;}catch{}finally{clearTimeout(travel);overlay.remove();jumping=false;}
 }
 
 function showSystem(id) {

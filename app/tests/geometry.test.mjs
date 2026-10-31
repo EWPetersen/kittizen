@@ -16,6 +16,11 @@ test('universe has three distinct system discs and no physical-body mixture',()=
 test('zooming out returns to universe',()=>{const {map}=fixture();map.zoom(.1);assert.equal(map.system,'universe');});
 test('double-click an available gate travels to its destination',()=>{const {map,events}=fixture();const gate=catalog.bodies.find(b=>b.kind==='gateway'&&b.system==='stanton'&&b.destinationSystem==='pyro');map.center=[...gate.position];map.span=1e6;map.draw();const hit=map.hits.find(h=>h.body?.id===gate.id);assert.ok(hit);events.dblclick({clientX:hit.x,clientY:hit.y});assert.equal(map.system,'pyro');});
 test('globe inverse rotation preserves game quaternion orientation',()=>{const p=inverseRotate([0,0,0,1],[1,2,3]);assert.deepEqual(p,[-1,-2,3]);});
+test('jump gate delegates to transition handler without changing system prematurely',()=>{
+ const {map,events}=fixture();const gate=catalog.bodies.find(b=>b.kind==='gateway'&&b.system==='stanton'&&b.destinationSystem==='pyro');
+ map.center=[...gate.position];map.span=1e6;map.draw();const hit=map.hits.find(h=>h.body?.id===gate.id);let destination;
+ map.onJump=id=>destination=id;events.dblclick({clientX:hit.x,clientY:hit.y});assert.equal(destination,'pyro');assert.equal(map.system,'stanton');
+});
 test('actual station models are bounded, shared and rotate with the map camera',()=>{
  const bodies=catalog.bodies.filter(b=>b.model);assert.ok(bodies.some(b=>b.kind==='comm'));assert.ok(bodies.some(b=>b.name==='Port Tressler'));
  const paths=new Set(bodies.map(b=>b.model));assert.ok(paths.size<bodies.length);

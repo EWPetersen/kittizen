@@ -95,7 +95,10 @@ export class StarMap {
       const recent=this.lastSelection;
       const fallback=recent&&(e.timeStamp??performance.now())-recent.time<500&&Math.hypot(x-recent.x,y-recent.y)<14?recent:null;
       const gate = this.hits.find(h => h.body?.kind === 'gateway' && Math.hypot(h.x - x, h.y - y) < h.r)||(fallback?.body.kind==='gateway'?fallback:null);
-      if (gate && this.systems.some(s => s.id === gate.body.destinationSystem)) this.setSystem(gate.body.destinationSystem);
+      if (gate && this.systems.some(s => s.id === gate.body.destinationSystem)) {
+        if(this.onJump)this.onJump(gate.body.destinationSystem);
+        else this.setSystem(gate.body.destinationSystem);
+      }
       else {
         const body=this.hits.find(h=>h.body&&h.body.kind!=='system'&&(h.box?x>=h.box.x&&x<=h.box.x+h.box.w&&y>=h.box.y&&y<=h.box.y+h.box.h:Math.hypot(h.x-x,h.y-y)<h.r))||fallback;
         if(body)this.onSelect(body.body);

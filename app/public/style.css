@@ -531,3 +531,8 @@ a{color:var(--cyan)}dialog{border-color:#63718b}dialog li{line-height:1.5;margin
 @media(max-width:700px){.brand-mark{width:33px;height:33px}.brand{gap:8px}}
 
 .profile-stats{display:grid;grid-template-columns:1fr auto;gap:12px;border-block:1px solid var(--line);padding:18px 0}.profile-stats dt{color:var(--muted)}.profile-stats dd{margin:0;color:var(--pink);font-weight:bold;font-size:18px}#profile-dialog{width:min(560px,calc(100% - 24px))}#profile-content .report-card{margin-block:12px}#sign-out{margin-top:20px}#profile-google{margin-top:14px}
+/* Short, map-local jump transition; no assets or permanent animation loop. */
+.wormhole{position:absolute;inset:0;z-index:20;overflow:hidden;background:radial-gradient(ellipse at center,#e2f8ff 0%,#81d6e6 3%,#183b63 13%,#080f23 50%,#050914 100%);pointer-events:auto}
+.wormhole-tunnel{position:absolute;inset:-60%;background:repeating-radial-gradient(ellipse at center,transparent 0 24px,#96ecff80 26px,#d8a3e850 29px,transparent 34px 64px);animation:wormhole-flight 760ms cubic-bezier(.25,.05,.65,1) both;transform-origin:center;filter:blur(1px)}
+@keyframes wormhole-flight{from{transform:perspective(350px) rotateZ(-12deg) scale(.3);opacity:.2}to{transform:perspective(350px) rotateZ(8deg) scale(2.8);opacity:.9}}
+@media(prefers-reduced-motion:reduce){.wormhole-tunnel{animation:none}}
