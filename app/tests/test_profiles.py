@@ -79,3 +79,40 @@ class ProfileAuthTests(unittest.TestCase):
         with patch.dict(sys.modules,{'google':google,'google.oauth2':oauth,'google.oauth2.id_token':fake_id,'google.auth.transport.requests':transport}):
             self.assertEqual(server.verify_google('token','expected'),'subject')
             with self.assertRaises(ValueError):server.verify_google('token','wrong')
+
+    def test_google_personal_claims_never_reach_storage_or_api(self):
+        import sys,types
+        markers=['private-person@example.invalid','Private Real Name','https://example.invalid/private-photo','private-signed-token']
+        claims=dict(sub='private-google-subject',nonce='',email=markers[0],name=markers[1],picture=markers[2])
+        fake_id=types.ModuleType('google.oauth2.id_token')
+        fake_id.verify_oauth2_token=lambda *args: claims
+        oauth=types.ModuleType('google.oauth2');oauth.id_token=fake_id
+        transport=types.ModuleType('google.auth.transport.requests');transport.Request=lambda:object()
+        modules={'google':types.ModuleType('google'),'google.oauth2':oauth,'google.oauth2.id_token':fake_id,'google.auth.transport.requests':transport}
+        claims['nonce']=self.request('auth-config')[1]['nonce']
+        with patch.dict(sys.modules,modules):
+            status,login=self.request('google',{'credential':markers[3]})
+        self.assertEqual(status,200)
+        own=self.request('me')[1]
+        self.assertRegex(own['user']['handle'],r'^Pilot_[0-9a-f]{12}$')
+        stranger=self.new_client()
+        responses=[login,own,self.request('profile')[1],self.request('profile?handle='+own['user']['handle'],client=stranger)[1],self.request('me',client=stranger)[1],self.request('reports?shard=EU-007',client=stranger)[1],self.request('routes',client=stranger)[1]]
+        public=json.dumps(responses)
+        for marker in markers+['private-google-subject']:
+            self.assertNotIn(marker,public)
+        with server.connect() as db:
+            dump='\n'.join(db.iterdump())
+            self.assertEqual(dict(db.execute('SELECT * FROM identities').fetchone()),dict(subject=claims['sub'],user=own['user']['id']))
+        for marker in markers:self.assertNotIn(marker,dump)
+
+    def test_google_verification_errors_do_not_echo_private_claims(self):
+        import sys,types
+        fake_id=types.ModuleType('google.oauth2.id_token')
+        fake_id.verify_oauth2_token=lambda *args: (_ for _ in ()).throw(RuntimeError('private@example.invalid secret-token'))
+        oauth=types.ModuleType('google.oauth2');oauth.id_token=fake_id
+        transport=types.ModuleType('google.auth.transport.requests');transport.Request=lambda:object()
+        with patch.dict(sys.modules,{'google':types.ModuleType('google'),'google.oauth2':oauth,'google.oauth2.id_token':fake_id,'google.auth.transport.requests':transport}):
+            self.request('auth-config')
+            status,result=self.request('google',{'credential':'secret-token'})
+        self.assertEqual(status,400)
+        self.assertNotIn('private@',json.dumps(result));self.assertNotIn('secret-token',json.dumps(result))

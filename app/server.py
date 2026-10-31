@@ -201,7 +201,11 @@ def verify_google(credential, nonce):
         raise ValueError("Google could not verify this sign-in. Please try again.")
     if not claims.get("sub") or not hmac.compare_digest(str(claims.get("nonce", "")), nonce):
         raise ValueError("Google sign-in expired. Please reopen sign-in and try again.")
-    return claims["sub"]
+    # Privacy boundary: never persist or return the token, email, name, or picture.
+    subject = claims["sub"]
+    if not isinstance(subject, str) or not 1 <= len(subject) <= 255:
+        raise ValueError("Google could not verify this sign-in. Please try again.")
+    return subject
 
 
 def text(value, limit):
