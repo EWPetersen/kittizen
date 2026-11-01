@@ -16,7 +16,10 @@ def prepare(source,destination):
     public=source/'public'
     catalog=json.loads((public/'catalog.json').read_text(encoding='utf-8'))
     assets={body['texture'] for body in catalog['bodies'] if body.get('texture')}
+    assets.update(body['textureDetail'] for body in catalog['bodies'] if body.get('textureDetail'))
+    assets.update(body['starAppearance']['texture'] for body in catalog['bodies'] if body.get('starAppearance',{}).get('texture'))
     assets.update(body['model'] for body in catalog['bodies'] if body.get('model'))
+    assets.update(body['artwork'] for body in catalog['bodies'] if body.get('artwork'))
     v2=json.loads((public/'v2-catalog.json').read_text())
     base=v2['base'].lstrip('/')
     assets.update(p.relative_to(public).as_posix() for p in (public/base).rglob('*') if p.is_file())

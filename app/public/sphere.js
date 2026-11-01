@@ -12,7 +12,7 @@ export function inverseRotate(q, v) {
   return [a + w * tx + y * tz - z * ty, b + w * ty + z * tx - x * tz, c + w * tz + x * ty - y * tx];
 }
 
-export function globePixels(texture, rotation, yaw, pitch, size = 256) {
+export function globePixels(texture, rotation, yaw, pitch, size = 256,viewport=null) {
   const pixels = new Uint8ClampedArray(size * size * 4);
   const cy = Math.cos(yaw),
     sy = Math.sin(yaw),
@@ -23,19 +23,24 @@ export function globePixels(texture, rotation, yaw, pitch, size = 256) {
   const front = inverseRotate(rotation, [sy * cp, cy * cp, sp]);
   for (let y = 0; y < size; y++)
     for (let x = 0; x < size; x++) {
-      const u = (x + .5) * 2 / size - 1,
-        v = (y + .5) * 2 / size - 1,
+      const u = viewport?((x+.5)/size*viewport.width-viewport.x)/viewport.radius:(x + .5) * 2 / size - 1,
+        v = viewport?((y+.5)/size*viewport.height-viewport.y)/viewport.radius:(y + .5) * 2 / size - 1,
         r2 = u * u + v * v;
       if (r2 > 1) continue;
       const depth = Math.sqrt(1 - r2);
       const local = [u * right[0] + v * down[0] + depth * front[0], u * right[1] + v * down[1] + depth * front[1], u * right[2] + v * down[2] + depth * front[2]];
-      const tx = Math.min(texture.width - 1, Math.floor(((Math.atan2(local[1], local[0]) / (Math.PI * 2) + .5) % 1 + 1) % 1 * texture.width));
-      const ty = Math.min(texture.height - 1, Math.max(0, Math.floor((.5 - Math.asin(Math.max(-1, Math.min(1, local[2]))) / Math.PI) * texture.height)));
+      const sx=((Math.atan2(local[1], local[0]) / (Math.PI * 2) + .5) % 1 + 1) % 1 * texture.width,sy=Math.max(0,Math.min(texture.height-1,(.5-Math.asin(Math.max(-1,Math.min(1,local[2])))/Math.PI)*texture.height));
+      const tx = Math.min(texture.width - 1, Math.floor(sx));
+      const ty = Math.floor(sy);
       const source = (ty * texture.width + tx) * 4,
         target = (y * size + x) * 4;
       const light = .57 + .43 * Math.max(0, -u * .28 - v * .32 + depth * .82);
-      for (let channel = 0; channel < 3; channel++) pixels[target + channel] = texture.data[source + channel] * light;
-      pixels[target + 3] = Math.min(255, (1 - r2) * size * 150);
+      for (let channel = 0; channel < 3; channel++){
+        let value=texture.data[source+channel];
+        if(viewport){const fx=sx-tx,fy=sy-ty,x1=(tx+1)%texture.width,y1=Math.min(ty+1,texture.height-1);value=(value*(1-fx)+texture.data[(ty*texture.width+x1)*4+channel]*fx)*(1-fy)+(texture.data[(y1*texture.width+tx)*4+channel]*(1-fx)+texture.data[(y1*texture.width+x1)*4+channel]*fx)*fy;}
+        pixels[target+channel]=value*light*(y%5===0?.975:1);
+      }
+      pixels[target + 3] = Math.min(255, (1 - r2) * (viewport?.radius||size) * 150);
     }
   return pixels;
 }
@@ -47,7 +52,8 @@ export class GlobeTextures {
     this.cache = new Map();
     this.failures = [];
   }
-  get(body, yaw, pitch, size = 256) {
+  get(body, yaw, pitch, size = 256,viewport=null) {
+    if(size>=512&&body.textureDetail)body={...body,texture:body.textureDetail};
     if (!body.texture) return null;
     if (!this.sources.has(body.texture)) {
       this.sources.set(body.texture, null);
@@ -71,13 +77,13 @@ export class GlobeTextures {
     }
     const source = this.sources.get(body.texture);
     if (!source) return null;
-    const key = body.texture + ':' + yaw.toFixed(2) + ':' + pitch.toFixed(2) + ':' + size,
+    const key = body.texture + ':' + yaw.toFixed(2) + ':' + pitch.toFixed(2) + ':' + size+':'+JSON.stringify(viewport),
       old = this.cache.get(body.id);
     if (old?.key === key) return old.canvas;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
-    canvas.getContext('2d').putImageData(new ImageData(globePixels(source, body.rotation, yaw, pitch, size), size, size), 0, 0);
+    canvas.getContext('2d').putImageData(new ImageData(globePixels(source, body.rotation, yaw, pitch, size,viewport), size, size), 0, 0);
     this.cache.set(body.id, {
       key,
       canvas

@@ -3,14 +3,14 @@ import {
 } from './sphere.js';
 import {activityWeight,heatField,heatPixels} from './heatmap.js';
 import {MapModels} from './models.js';
-import {StarSurfaces,stellarRadius,drawStar,drawOrbitalLight,starColor} from './stars.js';
+import {StarSurfaces,stellarRadius,stellarFocusSpan,drawStar,drawOrbitalLight,starColor} from './stars.js';
 // Stable candidate order and remembered anchor choices reduce label swapping while orbiting.
 export function labelPriority(body,selected=false) {
-  return body.kind==='planet'?0:body.kind==='star'?1:body.kind==='moon'?2:selected?3:body.kind==='gateway'?4:body.kind==='om'?5:6;
+  return body.kind==='planet'||body.mapImportance==='primary'?0:body.kind==='star'?1:body.kind==='moon'?2:selected?3:body.kind==='gateway'?4:body.kind==='om'?5:6;
 }
 // Detail belongs to the current scale, rather than to a particular system.
 export function detailSpan(body,container) {
-  if(['planet','star','body','gateway'].includes(body.kind))return Infinity;
+  if(body.mapImportance==='primary'||['planet','star','body','gateway'].includes(body.kind))return Infinity;
   if(body.kind==='moon')return 3e9;
   if(body.kind==='lagrange')return 1e10;
   if(container?.kind==='lagrange')return 3e10;
@@ -19,10 +19,28 @@ export function detailSpan(body,container) {
 export function markerFits(point,occupied,spacing) {
   return !occupied.some(p=>Math.hypot(point.x-p.x,point.y-p.y)<Math.max(spacing,(p.r||0)+12));
 }
+export function trackLabels(boxes,previous,elapsed,width,height,obstacles=[]){
+  const blend=1-Math.exp(-Math.max(1,Math.min(50,elapsed))/65),next=new Map();let moving=false;
+  let placed=boxes.map(box=>{const b=box.item,old=previous.get(b.id),dx=box.x-b.x,dy=box.y-b.y;
+    const state={dx:old?old.dx+(dx-old.dx)*blend:dx,dy:old?old.dy+(dy-old.dy)*blend:dy,alpha:old?old.alpha+(1-old.alpha)*blend:previous.size&&!b.major?blend:1};
+    if(Math.abs(state.dx-dx)<.3)state.dx=dx;if(Math.abs(state.dy-dy)<.3)state.dy=dy;if(state.alpha>.99)state.alpha=1;
+    next.set(b.id,state);moving||=state.dx!==dx||state.dy!==dy||state.alpha!==1;
+    return {...box,x:Math.max(8,Math.min(width-box.w-8,b.x+state.dx)),y:Math.max(8,Math.min(height-box.h-8,b.y+state.dy)),alpha:state.alpha};
+  });
+  const overlaps=(a,b)=>a.x<b.x+b.w+3&&a.x+a.w+3>b.x&&a.y<b.y+b.h+3&&a.y+a.h+3>b.y;
+  // Never trade collision avoidance for animation. Follow the clear target when
+  // an interpolated label would sweep across another label or a control.
+  if(placed.some((b,i)=>placed.slice(0,i).some(a=>overlaps(a,b))||obstacles.some(o=>o.bodyId!==b.item.id&&overlaps(b,o)))){
+    placed=boxes.map(b=>({...b,alpha:next.get(b.item.id).alpha}));moving=false;
+    for(const b of placed){const state={dx:b.x-b.item.x,dy:b.y-b.item.y,alpha:b.alpha};next.set(b.item.id,state);moving||=state.alpha!==1;}
+  }
+  return {placed,history:next,moving};
+}
 export function layoutLabels(candidates,width,height,previous=new Map(),obstacles=[]) {
   const placed=[],anchors=new Map();
   const overlaps=(a,b)=>a.x<b.x+b.w+5&&a.x+a.w+5>b.x&&a.y<b.y+b.h+4&&a.y+a.h+4>b.y;
-  const budget=width<500?8:14,detailBudget=width<500?3:6;let detailCount=0;
+  const primaryCount=candidates.filter(c=>c.major).length;
+  const budget=Math.max(width<500?8:14,Math.min(width<500?14:24,primaryCount)),detailBudget=width<500?3:6;let detailCount=0;
   for(const item of [...candidates].sort((a,b)=>a.priority-b.priority||Number(!!b.selected)-Number(!!a.selected)||(a.major&&b.major?(b.body?.radius||0)-(a.body?.radius||0):0)||Number(previous.has(b.id))-Number(previous.has(a.id))||a.id.localeCompare(b.id))){
     const detail=!item.major&&!item.selected&&!item.important;
     if(detail&&detailCount>=detailBudget)continue;
@@ -30,10 +48,11 @@ export function layoutLabels(candidates,width,height,previous=new Map(),obstacle
     if(offscreen&&(!item.major||item.x+item.r<0||item.x-item.r>width||item.y+item.r<0||item.y-item.r>height))continue;
     const w=Math.min(item.width+14,width-16),h=item.major?23:20,gap=(item.major?Math.min(item.r,Math.min(width,height)*.4):Math.max(item.r,item.selected?20:14))+10;
     const positions=[[gap,-h/2],[-w-gap,-h/2],[-w/2,-gap-h],[-w/2,gap],[gap,-h-18],[-w-gap,-h-18],[gap,18],[-w-gap,18]];
-    const order=[previous.get(item.id),0,1,2,3,4,5,6,7].filter((n,i,a)=>n!==undefined&&a.indexOf(n)===i);
+    if(item.major)for(const extra of [36,72])positions.push([gap+extra,-h/2],[-w-gap-extra,-h/2],[-w/2,gap+extra],[-w/2,-gap-h-extra]);
+    const order=[previous.get(item.id),...positions.map((_,i)=>i)].filter((n,i,a)=>n!==undefined&&n<positions.length&&a.indexOf(n)===i);
     for(const index of order){
       const [dx,dy]=positions[index];const box={x:Math.max(8,Math.min(width-w-8,item.x+dx)),y:Math.max(8,Math.min(height-h-8,item.y+dy)),w,h,item};
-      if(placed.some(other=>overlaps(box,other))||obstacles.some(other=>overlaps(box,other)))continue;
+      if(placed.some(other=>overlaps(box,other))||obstacles.some(other=>other.bodyId!==item.id&&overlaps(box,other)))continue;
       placed.push(box);anchors.set(item.id,index);if(detail)detailCount++;break;
     }
     if(placed.length>=budget)break;
@@ -62,7 +81,7 @@ export class StarMap {
     this.routePlan = null;
     this.globeTextures = new GlobeTextures(() => this.invalidate());
     this.mapModels = new MapModels(() => this.invalidate());
-    this.starSurfaces=new StarSurfaces();
+    this.starSurfaces=new StarSurfaces(()=>this.invalidate());
     new ResizeObserver(() => this.invalidate()).observe(canvas);
     canvas.addEventListener('wheel', e => {
       e.preventDefault();
@@ -164,7 +183,8 @@ export class StarMap {
   setBodies(bodies) {
     this.bodies = bodies;
     this.byId = new Map(bodies.map(b => [b.id, b]));
-    this.labelAnchors=new Map();this.labelVisibility=new Set();this.markerVisibility=new Set();
+    this.maxStarRadius=Math.max(1,...bodies.filter(b=>b.kind==='star').map(stellarRadius));
+    this.labelAnchors=new Map();this.labelVisibility=new Set();this.markerVisibility=new Set();this.labelMotion=new Map();this.labelClock=0;
   }
   drawHeatmap(now=Date.now()/1000){
     const points=this.reports.filter(r=>(r.system||'stanton')===this.system).map(r=>{
@@ -202,7 +222,7 @@ export class StarMap {
       }
     }
     const prior = this.span;
-    this.span = Math.max(this.system === 'universe' ? 20 : 2e4, Math.min(3e12, this.span / f));
+    this.span = Math.max(this.system === 'universe' ? 20 : 500, Math.min(3e12, this.span / f));
     if (this.systems.length && this.system !== 'universe' && this.span > this.systemSpan * 1.25) {
       this.setSystem('universe');
       return;
@@ -240,7 +260,7 @@ export class StarMap {
   setSystem(id) {
     if (id !== 'universe' && !this.systems.some(s => s.id === id)) return;
     this.system = id;
-    this.labelAnchors.clear();this.labelVisibility.clear();this.markerVisibility.clear();
+    this.labelAnchors.clear();this.labelVisibility.clear();this.markerVisibility.clear();this.labelMotion.clear();
     this.selected = null;
     this.home();
     this.onSystemChanged?.(id);
@@ -249,7 +269,7 @@ export class StarMap {
     const start=this.camera();
     this.center = [...b.position];
     const parent = b.radius > 0 ? null : this.surfaceParent(b);
-    this.span = b.radius > 0 ? b.radius * 2.8 : b.kind === 'star' ? 1.2e11 : parent ? parent.radius * 2.8 : 2e7;
+    this.span = b.radius > 0 ? b.radius * 1.6 : b.kind === 'star' ? 1.2e11 : parent ? parent.radius * 2.8 : 2e7;
     if (parent) {
       const normal = b.position.map((v, i) => v - parent.position[i]),
         length = Math.hypot(...normal);
@@ -259,20 +279,18 @@ export class StarMap {
     }
     this.selected = b.id;
     const target=this.camera();
-    if(b.kind==='star')target.span=stellarRadius(b)*4;
+    if(b.kind==='star')target.span=stellarFocusSpan(this.bodies);
     if(b.kind==='om'){
       target.span=Math.max(2e4,parent ? parent.radius*4 : 2e6);
       target.pitch=Math.max(-Math.PI/2+.01,Math.min(Math.PI/2-.01,target.pitch-.55));
     }
     if(b.model&&b.modelRole!=='symbol'){
+      target.center=[...b.position];target.span=Math.max(1000,(b.modelSize||1000)*1.5);
       if(parent){
-        // Frame an orbital facility with its parent, rather than diving straight
-        // down to a kilometre-scale model and losing all planetary context.
+        // Look along the parent body's limb with the station in the foreground.
         const distance=Math.hypot(...b.position.map((v,i)=>v-parent.position[i]));
-        target.center=parent.position.map((v,i)=>v+(b.position[i]-v)*.35);
-        target.span=Math.max(parent.radius*3.4,distance*1.8,(b.modelSize||1000)*8);
-        target.pitch=Math.max(-Math.PI/2+.01,Math.min(Math.PI/2-.01,target.pitch-.55));
-      }else{target.center=[...b.position];target.span=Math.max(2e4,(b.modelSize||1000)*8);}
+        target.pitch-=Math.asin(Math.min(.9999,parent.radius/Math.max(1,distance)));
+      }
     }
     Object.assign(this,start);this.flyTo(target);
   }
@@ -465,7 +483,7 @@ export class StarMap {
         c.arc(bx, by, 2.5, 0, Math.PI * 2);
         c.fill();
       }
-      if(star)drawStar(c,this.starSurfaces,star,x,y,5);
+      if(star)drawStar(c,this.starSurfaces,star,x,y,5*stellarRadius(star)/this.maxStarRadius);
       c.fillStyle = '#e2eeee';
       c.font = '17px Arial';
       c.fillText(s.name, x - 23, y + radius * .7 + 24);
@@ -573,7 +591,8 @@ export class StarMap {
     const routeNames=new Set(this.routePlan?.legs.filter(l=>l.system===this.system).flatMap(l=>[l.startName,l.endName])||[]);
     const important=b=>b.id===this.selected||this.route?.some(p=>p.id===b.id)||routeNames.has(b.name);
     const priority = b => labelPriority(b,important(b));
-    const sorted = [...visibleBodies].sort((a,b)=>priority(a)-priority(b)||Number(this.markerVisibility.has(b.id))-Number(this.markerVisibility.has(a.id))||a.id.localeCompare(b.id));
+    const layer=b=>b.radius>0||b.kind==='star'?0:b.id===this.selected?2:1;
+    const sorted = [...visibleBodies].sort((a,b)=>layer(a)-layer(b)||priority(a)-priority(b)||Number(this.markerVisibility.has(b.id))-Number(this.markerVisibility.has(a.id))||a.id.localeCompare(b.id));
     const occupied=[],markers=new Set();
     for (let b of sorted) {
       let [x, y] = this.project(b.position);
@@ -581,7 +600,7 @@ export class StarMap {
       if (x < -bound || x > this.w + bound || y < -bound || y > this.h + bound) continue;
       if (b.hidden) continue;
       if (b.category === 'auxiliary' && this.selected !== b.id) continue;
-      let major = ['planet', 'star', 'gateway', 'body'].includes(b.kind);
+      let major = b.mapImportance==='primary'||['planet', 'star', 'gateway', 'body'].includes(b.kind);
       const pinned=important(b),selected=this.selected===b.id;
       const parent = this.surfaceParent(b);
       if (!pinned&&!major&&parent && this.span > parent.radius * 25 && b.kind !== 'moon') continue;
@@ -590,21 +609,22 @@ export class StarMap {
       if(!pinned&&this.span>detailSpan(b,container)*(this.markerVisibility.has(b.id)?1.18:1))continue;
       // Do not draw a cloud of diamonds over a planet or at the same station hub.
       if(!major&&b.kind!=='moon'&&!pinned&&!markerFits({x,y},occupied,this.w<500?42:30))continue;
-      let r = b.kind === 'star' ? Math.max(10,stellarRadius(b)*this.scale) : b.radius > 0 ? Math.max(b.kind === 'planet' ? 13 : 7, b.radius * this.scale) : 4;
+      let r = b.kind === 'star' ? Math.max(6,10*stellarRadius(b)/this.maxStarRadius,stellarRadius(b)*this.scale) : b.radius > 0 ? Math.max(b.kind === 'planet' ? 13 : 7, b.radius * this.scale) : 4;
       occupied.push({x,y,r:major||b.kind==='moon'?Math.min(r,60):4});markers.add(b.id);
       let color = b.kind === 'star' ? '#e7ce90' : b.kind === 'gateway' ? '#d9bf88' : b.kind === 'planet' ? '#86c8d0' : '#6b9ca8';
       const detailedModel=b.modelRole!=='symbol'&&this.span<4e8&&(!parent||this.span<parent.radius*12);
       // Share one fixed silhouette per game mesh until a close-up needs camera rotation.
-      const model=b.model?this.mapModels.get(b.modelRole==='symbol'?{...b,rotation:[1,0,0,0]}:b,detailedModel?this.yaw:0,detailedModel?this.pitch:-.6):null;
+      const model=b.model?this.mapModels.get(b.modelRole==='symbol'?{...b,rotation:[1,0,0,0]}:b,detailedModel?this.yaw:0,detailedModel?this.pitch:-.6,detailedModel&&(selected||(b.modelSize||1000)*this.scale>160)?(this.pointers.size?256:512):160):null;
       if(b.kind==='star'){
         drawStar(c,this.starSurfaces,b,x,y,r);
       }else if(model){
-        r=detailedModel?Math.max(14,Math.min(72,(b.modelSize||1000)*this.scale)):pinned?12:9;
+        r=detailedModel?Math.max(14,Math.min(Math.min(this.w,this.h)*.65,(b.modelSize||1000)*this.scale)):pinned||b.mapImportance==='primary'?12:9;
         c.drawImage(model,x-r,y-r,r*2,r*2);
       } else if (b.radius > 0 || b.kind === 'star') {
-        const globe = this.globeTextures.get(b, this.yaw, this.pitch, r > 150 && !this.pointers.size ? 384 : 256);
+        const viewport=r>Math.max(this.w,this.h)*2?{width:this.w,height:this.h,x,y,radius:r}:null;
+        const globe = this.globeTextures.get(b, this.yaw, this.pitch, viewport?(this.pointers.size?192:512):r > 150 && !this.pointers.size ? 512 : 256,viewport);
         if (globe) {
-          c.drawImage(globe, x - r, y - r, r * 2, r * 2);
+          if(viewport)c.drawImage(globe,0,0,this.w,this.h);else c.drawImage(globe, x - r, y - r, r * 2, r * 2);
           c.strokeStyle = '#91e3f04d';
           c.lineWidth = 1;
           c.beginPath();
@@ -641,10 +661,11 @@ export class StarMap {
         }
         c.stroke();
       }
+      const displayR=model?r*(model.meshRadius||1):r;
       this.hits.push({
         x,
         y,
-        r: Math.max(18, r + 6),
+        r: Math.max(18, displayR + 6),
         body: b
       });
       const prominent=major||b.kind==='moon';
@@ -654,20 +675,25 @@ export class StarMap {
       if(!allowed){this.labelVisibility.delete(b.id);continue;}
       this.labelVisibility.add(b.id);
       c.font = (prominent ? '12' : '10') + 'px Arial';
-      let text=b.name;const limit=selected?190:145;
+      const fullText=b.name.replace(/^People's Service Station /,"People's ");let text=fullText;const limit=selected?190:145;
       while(text.length>4&&c.measureText(text).width>limit)text=text.slice(0,-2);
-      if(text!==b.name)text+='…';
-      labels.push({id:b.id,x,y,r,text,width:c.measureText(text).width,body:b,selected,important:pinned,major:prominent,priority:labelPriority(b,pinned)});
+      if(text!==fullText)text+='…';
+      labels.push({id:b.id,x,y,r:displayR,text,width:c.measureText(text).width,body:b,selected,important:pinned,major:prominent,priority:labelPriority(b,pinned)});
     }
     this.markerVisibility=markers;
     this.drawHeatmap();
     const obstacles=[];
-    for(const overlay of document.querySelectorAll?.('.map-title,.map-controls,#heat-legend,#report,.map-bottom,.map-help')||[]){
+    for(const overlay of document.querySelectorAll?.('.map-title,.map-controls,#heat-legend,#report,.map-bottom,.map-help,.panel-toggle')||[]){
       const box=overlay.getBoundingClientRect();if(box.width&&box.height)obstacles.push({x:box.left-rect.left,y:box.top-rect.top,w:box.width,h:box.height});
     }
     for(const report of this.reports){if((report.system||'stanton')!==this.system)continue;const [x,y]=this.project(report.position);obstacles.push({x:x-17,y:y-17,w:34,h:34});}
-    const layout=layoutLabels(labels,this.w,this.h,this.labelAnchors,obstacles);this.labelAnchors=layout.anchors;
-    for(const box of layout.placed){
+    for(const hit of this.hits){if(hit.body&&['planet','moon','star','body'].includes(hit.body.kind)&&hit.r<70)obstacles.push({bodyId:hit.body.id,x:hit.x-hit.r,y:hit.y-hit.r,w:hit.r*2,h:hit.r*2});}
+    const layout=layoutLabels(labels,this.w,this.h,this.labelAnchors,obstacles);
+    for(const [id,anchor] of layout.anchors)this.labelAnchors.set(id,anchor);
+    const labelTime=performance.now(),tracked=trackLabels(layout.placed,this.labelMotion,labelTime-this.labelClock,this.w,this.h,obstacles);this.labelClock=labelTime;this.labelMotion=tracked.history;
+    if(tracked.moving)this.invalidate();
+    for(const box of tracked.placed){
+      c.globalAlpha=box.alpha;
       const b=box.item;c.font=(b.major?'12':'10')+'px Arial';
       const end=[Math.max(box.x,Math.min(box.x+box.w,b.x)),box.y+box.h/2],dx=end[0]-b.x,dy=end[1]-b.y,distance=Math.hypot(dx,dy)||1;
       // A globe's leader starts at its limb, never across the whole surface.
@@ -677,6 +703,7 @@ export class StarMap {
       c.fillStyle=b.selected?'#f1fbff':b.major?'#c2e8ee':'#9fc7d1';c.fillText(b.text,box.x+7,box.y+(b.major?16:14));
       if(b.body)this.hits.push({x:box.x+box.w/2,y:box.y+box.h/2,r:0,box,body:b.body});
     }
+    c.globalAlpha=1;
     for (let r of this.reports) {
       if(!Number.isFinite(Number(r.created))||Date.now()/1000-Number(r.created)>=7200)continue;
       if ((r.system || 'stanton') !== this.system) continue;
@@ -714,6 +741,10 @@ export class StarMap {
       c.lineTo(x, y + 22);
       c.stroke();
     }
-    document.querySelector('#scale').textContent = (this.span / 1e9).toFixed(this.span < 1e9 ? 3 : 1) + ' M km / VIEW';
+    for(const [role,body] of Object.entries(this.routePins||{})){
+      if(!body||body.system!==this.system)continue;const [x,y]=this.project(body.position);
+      c.strokeStyle=role==='origin'?'#9bffda':'#ffa1d2';c.fillStyle=c.strokeStyle;c.lineWidth=2;c.beginPath();c.arc(x,y,12,0,Math.PI*2);c.stroke();c.font='bold 11px Arial';c.fillText(role==='origin'?'A':'B',x-4,y+4);
+    }
+    document.querySelector('#scale').textContent = this.span<1e6?(this.span/1000).toFixed(this.span<10000?1:0)+' km / VIEW':(this.span / 1e9).toFixed(this.span < 1e9 ? 3 : 1) + ' M km / VIEW';
   }
 }

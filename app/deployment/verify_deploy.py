@@ -22,6 +22,10 @@ def verify(root=ROOT):
             raise ValueError('Missing or changed deployment file: '+name)
     catalog=json.loads((root/'public/catalog.json').read_text(encoding='utf-8'))
     for body in catalog['bodies']:
+        if body.get('textureDetail') and not (root/'public'/body['textureDetail']).is_file():raise ValueError('Missing detail texture')
+        if body.get('artwork') and not (root/'public'/body['artwork']).is_file():raise ValueError('Missing location artwork')
+        if body.get('starAppearance',{}).get('texture') and not (root/'public'/body['starAppearance']['texture']).is_file():
+            raise ValueError('Missing stellar texture')
         if body.get('texture') and not (root/'public'/body['texture']).is_file():
             raise ValueError('Missing map texture')
         if body.get('model') and not (root/'public'/body['model']).is_file():

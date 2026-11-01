@@ -4,7 +4,7 @@ import {StarMap} from '../public/map.js';
 import {globePixels,inverseRotate} from '../public/sphere.js';
 import {positionOnRoute} from '../public/route.js';
 import {modelFaces,MapModels} from '../public/models.js';
-import {stellarRadius,starPixels} from '../public/stars.js';
+import {stellarRadius,stellarFocusSpan,starPixels} from '../public/stars.js';
 import fs from 'node:fs';
 const catalog=JSON.parse(fs.readFileSync(new URL('../public/catalog.json',import.meta.url),'utf8'));
 globalThis.ResizeObserver=class{observe(){}};globalThis.requestAnimationFrame=()=>{};globalThis.devicePixelRatio=1;
@@ -47,7 +47,7 @@ test('every planet and moon has six selectable, focusable OM markers',()=>{
  }
 });
 test('focusing a moon centers the moon rather than its planet',()=>{
- const {map}=fixture();for(const body of catalog.bodies.filter(b=>b.kind==='moon')){map.setSystem(body.system);map.focus(body);assert.deepEqual(map.center,body.position);assert.equal(map.span,body.radius*2.8);}
+ const {map}=fixture();for(const body of catalog.bodies.filter(b=>b.kind==='moon')){map.setSystem(body.system);map.focus(body);assert.deepEqual(map.center,body.position);assert.equal(map.span,body.radius*1.6);}
 });
 test('labels remain bounded and non-overlapping over zoom and rotation sweeps',()=>{
  const {map}=fixture();for(const system of ['stanton','pyro','nyx']){
@@ -71,7 +71,7 @@ test('system overviews keep celestial bodies and gates ahead of station detail',
   map.setSystem(system);map.draw();const markers=map.hits.filter(h=>h.body&&!h.box);
   assert.ok(markers.some(h=>h.body.kind==='planet'));
   if(system==='pyro')assert.ok(markers.some(h=>h.body.name==='Pyro IV'),'Pyro IV remains a planet even though it orbits Pyro V');
-  assert.ok(markers.every(h=>['planet','star','gateway','body'].includes(h.body.kind)),system);
+  assert.ok(markers.every(h=>h.body.mapImportance==='primary'||['planet','star','gateway','body'].includes(h.body.kind)),system);
  }
 });
 
@@ -94,23 +94,67 @@ test('a game navigation symbol does not turn a surface POI into a station close-
 test('all extracted stars focus to a close-up while retaining their game material',()=>{
  const {map}=fixture();for(const star of catalog.bodies.filter(b=>b.kind==='star')){
   assert.ok(star.starAppearance.source.startsWith('materials/stellar_classes/'));
-  map.setSystem(star.system);map.focus(star);map.draw();assert.equal(map.span,stellarRadius(star)*4);
+  map.setSystem(star.system);map.focus(star);map.draw();assert.equal(map.span,stellarFocusSpan(catalog.bodies));
   assert.deepEqual(map.center,star.position);const hit=map.hits.find(h=>h.body?.id===star.id&&!h.box);
-  assert.ok(hit.r>=Math.min(map.w,map.h)/4);assert.ok(map.hits.some(h=>h.body?.id===star.id&&h.box));
+  assert.ok(Math.abs(hit.r-6-Math.min(map.w,map.h)*stellarRadius(star)/stellarFocusSpan(catalog.bodies))<.01);assert.ok(map.hits.some(h=>h.body?.id===star.id&&h.box));
  }
  const pixels=starPixels([1,.49,.17],32),at=(16*32+16)*4;
  assert.equal(pixels[3],0);assert.equal(pixels[at+3],255);assert.ok(pixels[at]>pixels[at+1]);
  assert.ok(pixels[at+2]>80,'self-lit surface must not receive a dark planet terminator');
 });
 
+test('star rendering uses distinct world radii and colours, with a shared comparison zoom',()=>{
+ const stars=catalog.bodies.filter(b=>b.kind==='star');
+ assert.equal(new Set(stars.map(b=>b.starAppearance.source)).size,3);
+ assert.equal(new Set(stars.map(b=>stellarRadius(b))).size,3);
+ const nyx=stars.find(b=>b.system==='nyx'),pyro=stars.find(b=>b.system==='pyro'),stanton=stars.find(b=>b.system==='stanton');
+ assert.equal(stellarRadius(pyro),570720000);assert.equal(stellarRadius(stanton),696000000);assert.equal(stellarRadius(nyx),765600000);
+ assert.ok(nyx.starAppearance.texture);assert.ok(fs.existsSync(new URL('../public/'+nyx.starAppearance.texture,import.meta.url)));
+ const colors=stars.map(b=>{const p=starPixels(b.starAppearance.color,32);return [...p.slice((16*32+16)*4,(16*32+16)*4+3)].join(':');});assert.equal(new Set(colors).size,3);
+});
+
 test('orbital station focus retains its planet and manual close-ups never hide it',()=>{
- const {map}=fixture();for(const name of ['Seraphim Station','Port Tressler','Everus Harbor','Baijini Point']){
+ const {map}=fixture();map.mapModels.get=()=>({});for(const name of ['Seraphim Station','Port Tressler','Everus Harbor','Baijini Point']){
   const station=catalog.bodies.find(b=>b.name===name),parent=map.surfaceParent(station);
   map.setSystem(station.system);map.focus(station);map.draw();
-  assert.ok(map.span>=parent.radius*3.4,name);assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' parent');
+  assert.equal(map.span,Math.max(1000,station.modelSize*1.5),name);assert.deepEqual(map.center,station.position);assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' parent');
+  assert.ok(map.hits.find(h=>h.body?.id===station.id&&!h.box).r>Math.min(map.w,map.h)*.3,name+' large foreground model');
   assert.ok(map.hits.some(h=>h.body?.id===station.id&&!h.box),name+' station');
   assert.ok(!map.occluded(station.position,parent),name+' near side');
   map.center=[...station.position];map.span=20000;map.draw();
   assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' close-up parent');
  }
+});
+
+test('viewport globe rendering keeps an enormous parent opaque just inside its limb',()=>{
+ const texture={width:2,height:1,data:new Uint8ClampedArray([255,100,50,255,255,100,50,255])};
+ const pixels=globePixels(texture,[1,0,0,0],0,0,32,{width:32,height:32,x:16,y:1000016,radius:1000000});
+ assert.equal(pixels[(10*32+16)*4+3],0);assert.equal(pixels[(20*32+16)*4+3],255);
+});
+
+test('landing zones and gateways use the referenced game map symbols and location art',()=>{
+ for(const name of ['Levski','New Babbage','Lorville','Area18','Orison']){
+  const b=catalog.bodies.find(b=>b.name===name);assert.equal(b.modelRole,'symbol');assert.ok(b.modelSource.endsWith('.cga'));assert.ok(b.artwork);assert.ok(fs.existsSync(new URL('../public/'+b.artwork,import.meta.url)));
+ }
+ for(const b of catalog.bodies.filter(b=>b.kind==='gateway')){assert.equal(b.modelRole,'symbol');assert.ok(b.modelSource.includes('general_icon_1_b'));}
+});
+
+test('Pyro named station hubs survive system overview while asteroid bases stay local',()=>{
+ const {map}=fixture();map.setSystem('pyro');map.draw();
+ const hubs=catalog.bodies.filter(b=>b.system==='pyro'&&b.mapImportance==='primary');
+ assert.deepEqual(new Set(hubs.map(b=>b.name)),new Set(['Ruin Station','Orbituary','Checkmate']));
+ for(const name of ['Ruin Station','Orbituary','Checkmate']){
+  const station=hubs.find(b=>b.name===name);assert.ok(station,name+' primary classification');
+  assert.ok(map.hits.some(h=>h.body?.id===station.id&&!h.box),name+' overview marker');
+ }
+ assert.ok(hubs.every(b=>b.kind==='station'&&!/^(RAB-|RMB-|Cluster|PYAM-)/.test(b.name)));
+ for(const station of hubs){map.focus(station);map.draw();assert.ok(map.hits.some(h=>h.body?.id===station.id),station.name+' focus');}
+});
+
+test('Nyx spawn destinations are primary while breaker stations remain secondary',()=>{
+ const {map}=fixture();map.setSystem('nyx');map.draw();
+ const primary=catalog.bodies.filter(b=>b.system==='nyx'&&b.mapImportance==='primary');
+ assert.deepEqual(new Set(primary.map(b=>b.name)),new Set(['Levski',"People's Service Station Alpha","People's Service Station Delta","People's Service Station Theta","People's Service Station Lambda"]));
+ for(const b of primary)assert.ok(map.hits.some(h=>h.body?.id===b.id&&!h.box),b.name+' overview marker');
+ assert.ok(!map.hits.some(h=>h.body?.name.startsWith('QV Breaker Station')));
 });

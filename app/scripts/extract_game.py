@@ -11,7 +11,7 @@ from nav_metadata import navigation
 from p4k import P4K
 
 ENTRY = "data/objectcontainers/pu/system/stanton/stantonsystem.socpak"
-PIPELINE_VERSION = 6
+PIPELINE_VERSION = 12
 
 
 def fingerprint(game):
@@ -32,7 +32,7 @@ def read_catalog_xml(archive):
     return P4K(archive).container(ENTRY)
 
 
-def texture_png(archive, name):
+def texture_png(archive, name, max_size=512):
     """Decode a 512px mip directly; never unpack 4K textures for a phone."""
     from PIL import Image
 
@@ -49,7 +49,7 @@ def texture_png(archive, name):
     if parts:
         parts.sort(reverse=True)
         largest = parts[0][0]
-        skip = max(0, (max(width, height) // 512).bit_length() - 1)
+        skip = max(0, (max(width, height) // max_size).bit_length() - 1)
         level = max(1, largest - skip)
         selected = next((k for n, k in parts if n == level), parts[-1][1])
         target = max(width, height) // (2 ** (largest - level))
@@ -63,7 +63,7 @@ def texture_png(archive, name):
         )
     else:
         image = Image.open(io.BytesIO(raw)).convert("RGBA")
-    image.thumbnail((512, 512))
+    image.thumbnail((max_size, max_size))
     out = io.BytesIO()
     image.save(out, format="PNG", optimize=True)
     return out.getvalue()
@@ -116,7 +116,7 @@ def update(game, force=False):
     ).hexdigest()[:16]
     destination = ROOT / "public/game-assets" / stamp
     destination.mkdir(parents=True, exist_ok=True)
-    assets = {}
+    assets = {};detail_assets={}
     asset_paths = []
     for entry in archive.entries:
         if entry.startswith(
@@ -146,6 +146,10 @@ def update(game, force=False):
             temp.replace(path)
             relative = path.relative_to(ROOT / "public").as_posix()
             asset_paths.append(relative)
+            detail=texture_png(archive,entry,1024)
+            if detail!=path.read_bytes():
+                detail_path=destination/(basename+'-detail.png');detail_path.write_bytes(detail)
+                detail_relative=detail_path.relative_to(ROOT/'public').as_posix();asset_paths.append(detail_relative);detail_assets[relative]=detail_relative
             for m in matching:
                 assets[m["record"]] = relative
     if len(assets) < 30:
@@ -178,6 +182,8 @@ def update(game, force=False):
         results.append(part)
     result = results[0]
     result["bodies"] = [b for part in results for b in part["bodies"]]
+    for body in result['bodies']:
+        if body.get('texture') in detail_assets:body['textureDetail']=detail_assets[body['texture']]
     result["systems"] = systems
     result["system"] = "Universe"
     result["generation"] = stamp
@@ -185,7 +191,9 @@ def update(game, force=False):
     from map_models import extract_models
     asset_paths.extend(extract_models(archive,result,nav,ROOT))
     from star_materials import extract_stars
-    extract_stars(archive,result,nav,ROOT)
+    asset_paths.extend(extract_stars(archive,result,nav,ROOT))
+    from location_art import extract_location_art
+    asset_paths.extend(extract_location_art(archive,result,nav,ROOT))
     staged.write_text(
         json.dumps(result, separators=(",", ":"), allow_nan=False), encoding="utf-8"
     )

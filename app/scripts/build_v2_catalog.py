@@ -109,10 +109,10 @@ def normalize(records,assets,localization,destination,build):
             display=next((x.get('displayIcon','') for x in (v.get('StaticEntityClassData') or []) if isinstance(x,dict) and x.get('_Type_')=='EntityUIDisplayParams'),'')
             source=images.get(Path(display.replace('\\','/')).stem.lower())
         if source:
-            digest=hashlib.sha256(source.read_bytes()).hexdigest()[:20]
+            digest=hashlib.sha256(b'art-v4'+source.read_bytes()).hexdigest()[:20]
             image=f'images/{digest}.webp';target=destination/image;target.parent.mkdir(parents=True,exist_ok=True)
             if not target.exists():
-                with Image.open(source) as im:im.thumbnail((640,400));im.save(target,'WEBP',quality=82)
+                with Image.open(source) as im:im.thumbnail((960,600));im.save(target,'WEBP',quality=90)
             summary['imageSource']=source.relative_to(assets).as_posix()
             summary['imageKind']='ship artwork' if vehicle else 'loadout icon'
         summary['image']=image;summary['stats']=stats
@@ -133,7 +133,7 @@ def run(game,force=False):
     tool=ROOT/'.devtools/starbreaker-v0.3.2/starbreaker.exe'
     if not tool.exists():raise ValueError('Run scripts/setup_v2_extractor.ps1 first')
     if hashlib.sha256(tool.read_bytes()).hexdigest()!='82439e45cd5337f058f06ded63ee633bea8de8e4d75525f5a083aa7955b91a10':raise ValueError('Extractor checksum mismatch')
-    signature=dict(size=(game/'Data.p4k').stat().st_size,mtime=(game/'Data.p4k').stat().st_mtime_ns,pipeline=3)
+    signature=dict(size=(game/'Data.p4k').stat().st_size,mtime=(game/'Data.p4k').stat().st_mtime_ns,pipeline=4)
     state=ROOT/'storage/v2-state.json'
     if not force and state.exists() and json.loads(state.read_text()).get('signature')==signature:return
     with tempfile.TemporaryDirectory(prefix='kittizen-catalog-') as staging:
@@ -165,5 +165,5 @@ def publish(raw,assets,signature):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--game',type=Path,default=Path(r'D:\Games\Roberts Space Industries\StarCitizen\LIVE'));parser.add_argument('--force',action='store_true');parser.add_argument('--from-export',action='store_true');args=parser.parse_args()
-    if args.from_export:publish(ROOT/'storage/v2-records',ROOT/'storage/v2-assets',dict(source='initial-installed-export',pipeline=3))
+    if args.from_export:publish(ROOT/'storage/v2-records',ROOT/'storage/v2-assets',dict(source='initial-installed-export',pipeline=4))
     else:run(args.game,args.force)

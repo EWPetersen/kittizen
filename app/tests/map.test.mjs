@@ -1,7 +1,7 @@
 globalThis.ImageData=class{constructor(data,width,height){Object.assign(this,{data,width,height})}};
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {StarMap,layoutLabels,labelPriority} from '../public/map.js';
+import {StarMap,layoutLabels,labelPriority,trackLabels} from '../public/map.js';
 globalThis.ResizeObserver=class{observe(){}};
 let frames=[];globalThis.requestAnimationFrame=f=>frames.push(f);globalThis.devicePixelRatio=3;
 const scaleLabel={textContent:''};globalThis.document={createElement:()=>({getContext:()=>({putImageData(){}})}),querySelector:()=>scaleLabel};
@@ -13,8 +13,8 @@ function fixture(){
 }
 test('DPR cap and no idle animation loop',()=>{let {map,canvas}=fixture();assert.equal(canvas.width,585);assert.equal(canvas.height,1050);map.invalidate();map.invalidate();assert.equal(frames.length,1);frames.shift()();assert.equal(frames.length,0);});
 test('camera origin retains local metre detail far from system origin',()=>{let {map}=fixture();map.center=[4e10,3e10,0];map.span=2e6;map.draw();let a=map.project(map.center),b=map.project([4e10+1000,3e10,0]);assert.equal(a[0],195);assert.ok(Math.abs(b[0]-a[0])>.1);});
-test('zoom cannot leave supported extent',()=>{let {map}=fixture();map.zoom(1e30);assert.equal(map.span,2e4);map.zoom(1e-30);assert.equal(map.span,3e12);});
-test('body selection and planet focus',()=>{let f=fixture(),p=f.map.project(f.bodies[0].position);f.map.click({clientX:p[0],clientY:p[1]});assert.equal(f.selected.id,'a');f.map.focus(f.bodies[0]);assert.deepEqual(f.map.center,f.bodies[0].position);assert.equal(f.map.span,2.8e6);});
+test('zoom cannot leave supported extent',()=>{let {map}=fixture();map.zoom(1e30);assert.equal(map.span,500);map.zoom(1e-30);assert.equal(map.span,3e12);});
+test('body selection and planet focus',()=>{let f=fixture(),p=f.map.project(f.bodies[0].position);f.map.click({clientX:p[0],clientY:p[1]});assert.equal(f.selected.id,'a');f.map.focus(f.bodies[0]);assert.deepEqual(f.map.center,f.bodies[0].position);assert.equal(f.map.span,1.6e6);});
 test('route fit and tapping the middle returns halfway placement',()=>{let f=fixture();f.map.fitRoute(...f.bodies);f.map.draw();f.map.click({clientX:195,clientY:350});assert.ok(Math.abs(f.routeHit-.5)<1e-12);});
 test('shift-drag pans without selecting a body',()=>{let f=fixture();f.events.pointerdown({pointerId:1,clientX:100,clientY:100});f.events.pointermove({pointerId:1,clientX:150,clientY:110,shiftKey:true});f.events.pointerup({pointerId:1,clientX:150,clientY:110});assert.notDeepEqual(f.map.center,[0,0,0]);assert.equal(f.selected,null);assert.equal(f.map.pointers.size,0);});
 test('pinch zoom, cancellation, orbit pitch clamp',()=>{let f=fixture();f.events.pointerdown({pointerId:1,clientX:100,clientY:100});f.events.pointerdown({pointerId:2,clientX:200,clientY:100});let old=f.map.span;f.events.pointermove({pointerId:2,clientX:250,clientY:100});assert.ok(f.map.span<old);f.events.pointercancel({pointerId:2});f.events.pointermove({pointerId:1,clientX:110,clientY:10000,shiftKey:false});assert.equal(f.map.pitch,Math.PI/2-.01);f.events.pointercancel({pointerId:1});assert.equal(f.map.pointers.size,0);});
@@ -23,8 +23,8 @@ test('selected label renders even in crowded system view and reports draw',()=>{
 test('focus animates without jumping, settles exactly and stops rendering',()=>{
  const {map,bodies}=fixture();globalThis.matchMedia=()=>({matches:false});
  const before=map.camera();map.focus(bodies[0]);assert.deepEqual(map.center,before.center);assert.equal(map.span,before.span);
- const move=map.transition;map.advanceCamera(move.time+move.duration/2);assert.ok(map.span<before.span&&map.span>2.8e6);assert.ok(map.center[0]>0&&map.center[0]<bodies[0].position[0]);
- map.advanceCamera(move.time+move.duration);assert.equal(map.transition,null);assert.deepEqual(map.center,bodies[0].position);assert.equal(map.span,2.8e6);
+ const move=map.transition;map.advanceCamera(move.time+move.duration/2);assert.ok(map.span<before.span&&map.span>1.6e6);assert.ok(map.center[0]>0&&map.center[0]<bodies[0].position[0]);
+ map.advanceCamera(move.time+move.duration);assert.equal(map.transition,null);assert.deepEqual(map.center,bodies[0].position);assert.equal(map.span,1.6e6);
  map.focus(bodies[1]);map.pan(10,0);assert.equal(map.transition,null);
  globalThis.matchMedia=()=>({matches:true});map.focus(bodies[0]);assert.equal(map.transition,null);delete globalThis.matchMedia;
 });
@@ -60,4 +60,21 @@ test('focus is gently timed and selected planets have no rectangular outline',()
  const f=fixture();let boxes=0;f.canvas.getContext().strokeRect=()=>boxes++;
  globalThis.matchMedia=()=>({matches:false});
  try{f.map.selected=f.bodies[0].id;f.map.focus(f.bodies[0]);const move=f.map.transition;assert.ok(move.duration>=850&&move.duration<=1750);f.map.advanceCamera(move.time+move.duration);f.map.draw();assert.equal(boxes,0);assert.equal(f.map.transition,null);}finally{delete globalThis.matchMedia;}
+});
+
+test('primary station labels have planet priority and can share an anchor beside map chrome',()=>{
+ const planet={id:'planet',x:242,y:173,r:13,text:'Terminus',width:48,major:true,priority:0,body:{radius:1000000}};
+ const hub={id:'hub',x:242,y:173,r:12,text:'Ruin Station',width:72,major:true,priority:labelPriority({kind:'station',mapImportance:'primary'})};
+ assert.equal(hub.priority,planet.priority);
+ const layout=layoutLabels([hub,planet],690,642,new Map(),[{x:28,y:27,w:395,h:138}]);
+ assert.ok(layout.placed.some(b=>b.item.id==='planet'));assert.ok(layout.placed.some(b=>b.item.id==='hub'));
+});
+
+test('label tracking follows body movement immediately and eases anchor changes to rest',()=>{
+ const item={id:'planet',x:100,y:200,major:true},box={x:130,y:190,w:70,h:20,item};
+ let result=trackLabels([box],new Map(),16,690,642);assert.equal(result.moving,false);
+ const moved={...box,x:170,item:{...item,x:140}};result=trackLabels([moved],result.history,16,690,642);assert.equal(result.placed[0].x,170);
+ const flipped={...moved,x:40};result=trackLabels([flipped],result.history,16,690,642);assert.ok(result.placed[0].x>40&&result.placed[0].x<170);
+ for(let i=0;i<60;i++)result=trackLabels([flipped],result.history,16,690,642);
+ assert.equal(result.moving,false);assert.equal(result.placed[0].x,40);
 });

@@ -40,22 +40,23 @@ def extract_models(archive,catalog,metadata,root):
     sources={}
     for body in catalog['bodies']:
         meta=metadata.get(body.get('navigationRecord'),{});geometry=meta.get('starMapGeomPath','').lower()
-        if not body.get('radius') and geometry.startswith('objects/ui/starmap/') and geometry.endswith('.cgf'):
+        if not body.get('radius') and geometry.startswith('objects/ui/starmap/') and geometry.endswith(('.cgf','.cga')) and 'planet_sphere' not in geometry:
             sources.setdefault(geometry,[]).append((body,meta))
     paths=[]
     for source,targets in sorted(sources.items()):
-        stem=source[:-4];chosen=next((candidate for candidate in (stem+'_lod2',stem+'_lod1',stem) if 'data/'+candidate+'.cgf' in archive.entries and 'data/'+candidate+'.cgfm' in archive.entries),None)
+        ext=Path(source).suffix;mesh_ext='.cgam' if ext=='.cga' else '.cgfm'
+        stem=source[:-4];chosen=next((candidate for candidate in (stem+'_lod2',stem+'_lod1',stem) if 'data/'+candidate+ext in archive.entries and 'data/'+candidate+mesh_ext in archive.entries),None)
         if not chosen:raise ValueError('Missing starmap mesh pair: '+source)
-        data=root/'storage/model-source/data';local=data/(chosen+'.cgf');local.parent.mkdir(parents=True,exist_ok=True)
-        for ext in ('.cgf','.cgfm'):(data/(chosen+ext)).write_bytes(archive.read('data/'+chosen+ext))
+        data=root/'storage/model-source/data';local=data/(chosen+ext);local.parent.mkdir(parents=True,exist_ok=True)
+        for suffix in (ext,mesh_ext):(data/(chosen+suffix)).write_bytes(archive.read('data/'+chosen+suffix))
         converted=root/'storage/model-converted';converted.mkdir(parents=True,exist_ok=True)
         output=converted/(Path(chosen).name+'.gltf')
         output.unlink(missing_ok=True)
         result=subprocess.run([str(converter),str(local),'-objectdir',str(data),'-gltf','-notex','-out',str(converted)],capture_output=True,text=True,timeout=60)
         if result.returncode or not output.is_file():raise ValueError('Map model conversion failed: '+source)
-        mesh=compact_gltf(output);mesh['source']=chosen+'.cgf';mesh['converter']='Cryengine-Converter v2.0.0'
+        mesh=compact_gltf(output);mesh['source']=chosen+ext;mesh['converter']='Cryengine-Converter v2.0.0'
         raw=json.dumps(mesh,separators=(',',':'));digest=hashlib.sha256(raw.encode()).hexdigest()[:12]
         relative='game-assets/models/'+Path(stem).name+'-'+digest+'.json';target=root/'public'/relative;target.parent.mkdir(parents=True,exist_ok=True)
         temp=target.with_suffix('.tmp');temp.write_text(raw);temp.replace(target);paths.append(relative)
-        for body,meta in targets:body.update(model=relative,modelSource=chosen+'.cgf',modelSize=max(1,meta.get('size',1)),modelRole='structure' if '/stations/' in source else 'symbol')
+        for body,meta in targets:body.update(model=relative,modelSource=chosen+ext,modelSize=max(1,meta.get('size',1)),modelRole='structure' if '/stations/' in source else 'symbol')
     return paths

@@ -12,6 +12,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from routing import orbit_markers
 
 
+def primary_location(system,record):
+    """Spawn-hub priority policy keyed by stable game records, not display names."""
+    if system.lower()=='pyro':
+        return record.upper() in {'RR_P6_LEO','RR_P3_LEO','RR_P2_L4'}
+    if system.lower()=='nyx':
+        return record.lower()=='nyx_levski' or bool(re.fullmatch(r'AsteroidClusterBase_Nyx_Social_Keeger_\d+',record,re.I))
+    if system.lower()=='stanton':
+        return record.lower() in {'stanton1_lorville','stanton2_orison','stanton3_area18','stanton4_newbabbage','grimhex'} or bool(re.fullmatch(r'RR_(?:HUR|ARC|MIC|CRU)_(?:LEO|L[1-5])',record,re.I))
+    return False
+
 def mul(a, b):
     w, x, y, z = a
     W, X, Y, Z = b
@@ -174,6 +184,7 @@ def build(
                             else None
                         ),
                         navigationRecord=record_id,
+                        mapImportance='primary' if primary_location(system,meta.get('record','')) else 'local',
                         source=path or child.get("class", ""),
                         texture=assets.get(meta.get("record")),
                         jumpable=not meta.get("blockTravel", False),

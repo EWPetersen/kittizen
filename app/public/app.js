@@ -47,6 +47,7 @@ function panel(id) {
   if (id !== 'map-area') document.body.classList.add('panel-' + id);
   document.querySelectorAll('#mobile-nav button').forEach(b => b.classList.toggle('active', b.dataset.panel === id));
   if (id === 'intel') document.body.classList.toggle('intel-open');
+  updatePanelToggles();
   map?.invalidate();
 }
 document.querySelectorAll('[data-panel]').forEach(b => b.onclick = () => panel(b.dataset.panel));
@@ -251,6 +252,27 @@ function focusActivity(r) {
   panel('map-area');
 }
 
+let routeRequest=0;
+function chooseRoutePoint(id,b){
+  if(!b)return;const other=map.routePins?.[id==='origin'?'destination':'origin'];
+  if(other?.id===b.id)return toast('Choose two different locations');
+  $('#'+id).value=b.id;map.routePins={...(map.routePins||{}),[id]:b};
+  if(map.routePins.origin&&map.routePins.destination){plot(map.routePins.origin.id,map.routePins.destination.id);return;}
+  routeRequest++;activeRoute=null;map.route=null;map.routePlan=null;
+  $('#plot').disabled=false;$('#route-itinerary')?.replaceChildren();$('#route-summary').textContent=(id==='origin'?'Departure: ':'Destination: ')+b.name+' · select '+(id==='origin'?'a destination':'a departure')+' on the map.';
+  map.invalidate();toast((id==='origin'?'Departure':'Destination')+' set · '+b.name);
+}
+function mapActionRoot(){
+  let root=$('#map-location-actions');if(!root){root=el('div',undefined,'map-location-actions');root.id='map-location-actions';root.setAttribute('aria-label','Selected location route actions');document.querySelector('.map-title').append(root);}
+  return root;
+}
+function mapResetButton(){const button=el('button','Reset pins');button.id='map-clear-route';button.onclick=()=>$('#clear-route').click();return button;}
+function mapLocationActions(b){
+  const root=mapActionRoot();
+  root.hidden=false;root.replaceChildren();
+  for(const [id,label] of [['origin','Depart here'],['destination','Route here']]){const button=el('button',label);button.id='map-'+id;button.onclick=()=>chooseRoutePoint(id,b);root.append(button);}
+  root.append(mapResetButton());
+}
 function selectBody(b, focus = true) {
   if (map.system !== b.system && b.system) map.setSystem(b.system);
   selected = b;
@@ -261,6 +283,8 @@ function selectBody(b, focus = true) {
   let root = $('#selection');
   const parent = bodies.find(p => p.id === b.parent);
   root.replaceChildren(el('h3', b.name), el('small', b.kind.toUpperCase() + (parent ? ' · ' + parent.name : '')));
+  mapLocationActions(b);
+  if(b.artwork){const image=el('img');image.src=b.artwork;image.alt=b.name+' · game location artwork';image.className='location-art';image.loading='lazy';image.decoding='async';root.append(image);}
   if(b.kind==='om')root.append(el('p','Derived orbital position; OM numbering is approximate.','hint'));
   if(b.model&&b.modelRole!=='symbol')root.append(el('p','Extracted game starmap model.','hint'));
   let actions = el('div', undefined, 'inline');
@@ -269,11 +293,7 @@ function selectBody(b, focus = true) {
       ['destination', 'Route here']
     ]) {
     let btn = el('button', label);
-    btn.onclick = () => {
-      $('#' + id).value = b.id;
-      if (id === 'destination') plot();
-      else toast(label + ' · ' + b.name);
-    };
+    btn.onclick = () => chooseRoutePoint(id,b);
     actions.append(btn);
   }
   root.append(actions);
@@ -337,6 +357,7 @@ async function plot(origin = $('#origin').value, destination = $('#destination')
   let a = bodies.find(b => b.id === origin),
     b = bodies.find(b => b.id === destination);
   if (!a || !b || a.id === b.id) return toast('Choose two different locations');
+  const request=++routeRequest;
   try {
     $('#plot').disabled = true;
     activeRoute = null;
@@ -349,6 +370,7 @@ async function plot(origin = $('#origin').value, destination = $('#destination')
       origin: a.id,
       destination: b.id
     });
+    if(request!==routeRequest)return;
     activeRoute = {
       origin: a.id,
       destination: b.id,
@@ -356,6 +378,7 @@ async function plot(origin = $('#origin').value, destination = $('#destination')
     };
     $('#origin').value = a.id;
     $('#destination').value = b.id;
+    map.routePins={origin:a,destination:b};
     map.setPlan(plan);
     $('#route-summary').textContent = `${a.name} → ${b.name} · ${(plan.totalDistance/1e9).toFixed(3)} M km · ${plan.legs.filter(l=>l.kind==='jump').length} jumps. Amber = local flight; green = quantum. OM numbering and flight model are approximations.`;
     let itinerary = $('#route-itinerary');
@@ -378,17 +401,20 @@ async function plot(origin = $('#origin').value, destination = $('#destination')
       itinerary.append(button);
     }
     $('#map-name').textContent = 'Quantum route';
+    const routeActions=mapActionRoot();routeActions.hidden=false;routeActions.replaceChildren(mapResetButton());
     $('#map-subtitle').textContent = a.name + ' → ' + b.name;
     panel('map-area');
   } catch (e) {
+    if(request!==routeRequest)return;
     $('#route-summary').textContent = 'Route unavailable: ' + e.message;
     toast(e.message);
   } finally {
-    $('#plot').disabled = false;
+    if(request===routeRequest)$('#plot').disabled = false;
   }
 }
 $('#plot').onclick = () => plot();
 $('#clear-route').onclick = () => {
+  routeRequest++;$('#plot').disabled=false;map.routePins={};
   activeRoute = null;
   map.route = null;
   map.routePlan = null;
@@ -396,6 +422,7 @@ $('#clear-route').onclick = () => {
   map.marker = null;
   map.invalidate();
   $('#route-summary').textContent = 'Plot a jump, then tap its line to place an incident.';
+  showSystem(map.system);
 };
 $('#save-route').onclick = async () => {
   if (!needUser()) return;
@@ -654,6 +681,7 @@ async function jumpToSystem(id) {
 }
 
 function showSystem(id) {
+  if($('#map-location-actions'))$('#map-location-actions').hidden=true;
   selected=null;map.selected=null;$('#selection').replaceChildren();
   $('#system-picker').value = id;
   $('#system-context').textContent = id.toUpperCase();
@@ -663,6 +691,34 @@ function showSystem(id) {
   updateHeatLegend();
   reports=[];renderReports();loadReports();updatePresence();
 }
+
+function updatePanelToggles(){
+  const mobile=matchMedia('(max-width:700px)').matches,tablet=matchMedia('(max-width:1100px)').matches;
+  for(const [side,id,name] of [['nav','sidebar','Navigation'],['intel','intel','Intelligence']]){
+    const button=$('#toggle-'+side);if(!button)continue;
+    const open=mobile?document.body.classList.contains('panel-'+id):side==='intel'&&tablet?document.body.classList.contains('intel-open'):!document.body.classList.contains(side+'-hidden');
+    button.textContent=(side==='nav'?(open?'‹ ':'› '):'')+name+(side==='intel'?(open?' ›':' ‹'):'');
+    button.setAttribute('aria-expanded',String(open));button.setAttribute('aria-label',(open?'Hide ':'Show ')+name+' panel');
+  }
+}
+function setupPanelToggles(){
+  let saved={};try{saved=JSON.parse(localStorage.getItem('kittizen-panels')||'{}')||{};}catch{}
+  for(const side of ['nav','intel']){
+    if(saved[side]===true)document.body.classList.add(side+'-hidden');
+    const button=el('button',undefined,'panel-toggle');button.id='toggle-'+side;button.type='button';button.setAttribute('aria-controls',side==='nav'?'sidebar':'intel');
+    button.onclick=()=>{
+      const mobile=matchMedia('(max-width:700px)').matches,tablet=matchMedia('(max-width:1100px)').matches;
+      if(mobile){const id=side==='nav'?'sidebar':'intel';panel(document.body.classList.contains('panel-'+id)?'map-area':id);}
+      else if(side==='intel'&&tablet){document.body.classList.toggle('intel-open');updatePanelToggles();}
+      else{document.body.classList.toggle(side+'-hidden');updatePanelToggles();}
+      try{localStorage.setItem('kittizen-panels',JSON.stringify({nav:document.body.classList.contains('nav-hidden'),intel:document.body.classList.contains('intel-hidden')}));}catch{}
+      map?.invalidate();
+    };
+    document.body.append(button);
+  }
+  matchMedia('(max-width:1100px)').addEventListener('change',updatePanelToggles);matchMedia('(max-width:700px)').addEventListener('change',updatePanelToggles);updatePanelToggles();
+}
+setupPanelToggles();
 async function updatePresence(){
   if(!map||document.hidden)return;
   const system=map.system,shard=currentShard;
