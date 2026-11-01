@@ -4,6 +4,7 @@ import {
 import {
   positionOnRoute
 } from './route.js';
+import {planSnare,referenceMarkers,trilaterate,assessPosition,parseCoordinates} from './interdiction.js';
 const $ = s => document.querySelector(s),
   el = (tag, text, cls) => {
     let n = document.createElement(tag);
@@ -274,7 +275,7 @@ function chooseRoutePoint(id,b){
   $('#'+id).value=b.id;map.routePins={...(map.routePins||{}),[id]:b};
   updateLocationPickers();
   if(map.routePins.origin&&map.routePins.destination){plot(map.routePins.origin.id,map.routePins.destination.id);return;}
-  routeRequest++;activeRoute=null;map.route=null;map.routePlan=null;
+  routeRequest++;activeRoute=null;map.route=null;map.routePlan=null;clearSnare();
   $('#plot').disabled=false;$('#route-itinerary')?.replaceChildren();$('#route-summary').textContent=(id==='origin'?'Departure: ':'Destination: ')+b.name+' · select '+(id==='origin'?'a destination':'a departure')+' on the map.';
   map.invalidate();toast((id==='origin'?'Departure':'Destination')+' set · '+b.name);
 }
@@ -384,6 +385,7 @@ async function plot(origin = $('#origin').value, destination = $('#destination')
   try {
     $('#plot').disabled = true;
     activeRoute = null;
+    clearSnare();
     map.routePlan = null;
     map.route = null;
     $('#route-summary').textContent = 'Planning route…';
@@ -425,7 +427,7 @@ async function plot(origin = $('#origin').value, destination = $('#destination')
       itinerary.append(button);
     }
     $('#map-name').textContent = 'Quantum route';
-    const routeActions=mapActionRoot();routeActions.hidden=false;routeActions.replaceChildren(mapResetButton());
+    const routeActions=mapActionRoot();routeActions.hidden=false;routeActions.replaceChildren(mapResetButton(),snareButton());
     $('#map-subtitle').textContent = a.name + ' → ' + b.name;
     panel('map-area');
   } catch (e) {
@@ -438,6 +440,7 @@ async function plot(origin = $('#origin').value, destination = $('#destination')
 }
 $('#plot').onclick = () => plot();
 $('#clear-route').onclick = () => {
+  clearSnare();
   routeRequest++;$('#plot').disabled=false;map.routePins={};
   activeRoute = null;
   map.route = null;
@@ -599,6 +602,96 @@ $('#trust-info').onclick = () => $('#info-dialog').showModal();
 
 // Small touch enhancements share the existing form controls and API paths.
 let pickerTarget=null,recentLocations=[];
+let snareReferences=[];
+function clearSnare(){if(map){map.snarePlan=null;map.invalidate();}snareReferences=[];if($('#snare-results'))$('#snare-results').hidden=true;if($('#snare-check-result'))$('#snare-check-result').textContent='';if($('#snare-dialog')?.open)$('#snare-dialog').close();}
+function snareButton(){const button=el('button','Plan interception');button.type='button';button.className='snare-open';button.onclick=openSnarePlanner;return button;}
+function openSnarePlanner(){
+  if(!activeRoute?.plan){panel('sidebar');$('#pick-origin').focus();return toast('Choose the target departure and destination, then plot its route.');}
+  if(!catalog.interdiction)return toast('Snare device data is unavailable. Refresh after game-data extraction finishes.');
+  if(map.snarePlan&&activeRoute.plan.legs.includes(map.snarePlan.leg)){$('#snare-dialog').showModal();return;}
+  const legs=activeRoute.plan.legs.map((leg,index)=>({leg,index})).filter(({leg})=>leg.kind==='quantum'&&leg.distance>0);
+  $('#snare-leg').replaceChildren(...legs.map(({leg,index})=>option(index,leg.system.toUpperCase()+' · '+leg.startName+' → '+leg.endName)));
+  $('#snare-error').textContent=legs.length?'':'This route contains no quantum leg. Local flight and jump tunnels cannot be planned as snares.';
+  $('#snare-calculate').disabled=!legs.length;
+  const device=catalog.interdiction;$('#snare-device').textContent=device.ship+' · '+device.snareRadius/1000+' km snare radius · '+device.chargeSeconds+' s charge + '+device.activationSeconds+' s activation · '+device.dampenerRadius/1000+' km dampener. Installed build '+catalog.build+'.';$('#snare-green-zone').textContent=device.greenZoneCheckRange/1000+' km';
+  $('#snare-dialog').showModal();
+  $('#snare-results').hidden=true;snareReferences=[];snareDefaults();
+}
+function snareDefaults(){
+  const leg=activeRoute?.plan.legs[Number($('#snare-leg').value)];
+  const origin=bodies?.find(b=>b.id===activeRoute?.origin),parent=bodies?.find(b=>b.id===origin?.parent);
+  const spread=leg?.startName.includes('OM-')?2000:Math.max(2000,(origin?.radius||parent?.radius||0)*1.5);
+  $('#snare-start-spread').value=(spread/1000).toFixed(1);$('#snare-end-spread').value='10';
+  if($('#snare-results'))$('#snare-results').hidden=true;
+}
+function focusSnare(position=map.snarePlan?.position){
+  const plan=map.snarePlan;if(!plan||!position)return;
+  $('#snare-dialog').close();if(map.system!==plan.system)map.setSystem(plan.system);
+  map.flyTo({...map.camera(),center:[...position],span:plan.radius*10});
+  $('#map-name').textContent='Interdiction plan';$('#map-subtitle').textContent=plan.leg.startName+' → '+plan.leg.endName+' · geometric estimate';
+  const actions=mapActionRoot();actions.hidden=false;actions.replaceChildren(snareButton(),mapResetButton());panel('map-area');
+}
+function calculateSnare(e){
+  e.preventDefault();$('#snare-error').textContent='';$('#snare-results').hidden=true;$('#snare-check-result').textContent='';
+  try{
+    const read=id=>{const input=$('#snare-'+id);if(input.value.trim()===''||!input.checkValidity())throw Error('Check the '+id.replaceAll('-',' ')+' value.');return Number(input.value)*1000;};
+    const leg=activeRoute.plan.legs[Number($('#snare-leg').value)],plan=planSnare(leg,{radius:catalog.interdiction.snareRadius,margin:read('margin'),startSpread:read('start-spread'),endSpread:read('end-spread'),minTravel:read('min-travel'),endBuffer:read('end-buffer'),bodies});
+    map.snarePlan=plan;map.invalidate();
+    const stats=$('#snare-stats');stats.replaceChildren();
+    for(const [label,value] of [['Travel from QT leg start',plan.fromStart],['Distance to modeled leg end',plan.toEnd],['Assumed corridor radius here',plan.spread],['Remaining placement budget',plan.placementBudget]])stats.append(el('dt',label),el('dd',(value/1000).toLocaleString(undefined,{maximumFractionDigits:3})+' km'));
+    $('#snare-instructions').textContent='Follow the quantum leg '+leg.startName+' → '+leg.endName+'. Stop near the calculated point and compare the three centre-marker ranges below. Distances to modeled QT boundaries are not HUD marker distances. This creates a map plan, not an in-game waypoint.';
+    $('#snare-coordinates').textContent=plan.system.toUpperCase()+' · metres\nX '+plan.position[0].toFixed(3)+'\nY '+plan.position[1].toFixed(3)+'\nZ '+plan.position[2].toFixed(3);
+    $('#snare-references').replaceChildren();
+    try{snareReferences=referenceMarkers(bodies,plan);}catch(error){snareReferences=[];$('#snare-references').append(el('p',error.message,'hint'));}
+    for(const [index,ref] of snareReferences.entries()){
+      const label=el('label',ref.body.name+' · expected '+(ref.distance/1000).toFixed(3)+' km');label.htmlFor='snare-range-'+index;
+      const input=el('input');input.id=label.htmlFor;input.type='number';input.min='0';input.step='any';input.inputMode='decimal';input.placeholder='Measured centre-marker range (km)';
+      $('#snare-references').append(label,input);
+    }
+    $('#snare-verify').disabled=false;$('#snare-position').value='';
+    $('#snare-results').hidden=false;$('#snare-results').scrollIntoView({block:'start'});
+  }catch(error){map.snarePlan=null;snareReferences=[];map.invalidate();$('#snare-error').textContent=error.message;}
+}
+function verifySnare(e){
+  e.preventDefault();const output=$('#snare-check-result');output.replaceChildren();
+  try{
+    if(!map.snarePlan)throw Error('Calculate a plan first.');
+    if($('#snare-position').value.trim()){
+      const position=parseCoordinates($('#snare-position').value),a=assessPosition(map.snarePlan,position),delta=map.snarePlan.position.map((v,i)=>v-position[i]);
+      output.append(el('strong',a.covered?'Coordinates are inside modeled corridor coverage.':'Coordinates are outside modeled corridor coverage.'),el('p',(a.crossTrack/1000).toFixed(3)+' km off route · '+(a.distanceToPlan/1000).toFixed(3)+' km from planned point.'),el('p','Correction to planned point (world metres): X '+delta[0].toFixed(1)+', Y '+delta[1].toFixed(1)+', Z '+delta[2].toFixed(1)+'. Same-system coordinates required; no live telemetry.'));output.scrollIntoView({block:'start'});return;
+    }
+    if(snareReferences.length!==3)throw Error('No suitable range references. Enter same-system coordinates instead.');
+    const ranges=snareReferences.map((_,i)=>{const input=$('#snare-range-'+i);if(!input.value.trim()||!input.checkValidity())throw Error('Enter all three measured ranges in kilometres.');return Number(input.value)*1000;});
+    const solution=trilaterate(snareReferences.map(r=>r.body.position),ranges,1000),assessments=solution.solutions.map(p=>assessPosition(map.snarePlan,p));
+    output.append(el('strong',solution.ambiguous?'Two possible positions — mirror ambiguity remains.':'One geometric position found.'),el('p','Maximum range residual '+(solution.residual/1000).toFixed(3)+' km · 1 km input tolerance. HUD rounding and marker-centre accuracy may dominate.'));
+    for(const [i,a] of assessments.entries()){
+      output.append(el('p','Solution '+String.fromCharCode(65+i)+': '+(a.covered?'inside modeled corridor coverage':'outside modeled coverage')+' · '+(a.crossTrack/1000).toFixed(3)+' km off route · '+(a.distanceToPlan/1000).toFixed(3)+' km from planned point.'));
+    }
+    if(solution.ambiguous)output.append(el('p','Three ranges cannot resolve which side of the reference plane you occupy. Do not treat either solution as a verified live position.','hint'));
+    output.append(el('p','A small range residual does not bound position error. Distant markers and HUD rounding can produce large position errors; use same-system coordinates for narrow corridors.','hint'));output.scrollIntoView({block:'start'});
+  }catch(error){output.textContent=error.message;}
+}
+function setupSnarePlanner(){
+  const dialog=el('dialog');dialog.id='snare-dialog';dialog.setAttribute('aria-labelledby','snare-title');
+  dialog.innerHTML=`<div class="dialog-heading"><h2 id="snare-title">Interdiction planner</h2><button type="button" id="snare-close" aria-label="Close interdiction planner">×</button></div>
+    <p>Plan a Mantis snare along a target's plotted route. A dampener alone cannot pull ships out of quantum.</p><p id="snare-device" class="hint"></p><p class="hint">Static geometry estimate. Rotating cities/stations, unknown departure positions and server behavior can invalidate it. Approximate body exclusions do not prove physics-grid or armistice clearance.</p>
+    <form id="snare-form"><label for="snare-leg">TARGET QUANTUM LEG</label><select id="snare-leg"></select>
+    <details><summary>Route uncertainty &amp; assumptions</summary><p>These are planning inputs, not measured game limits. A route from a whole planet has much more departure uncertainty than a specific marker.</p>
+    <label for="snare-start-spread">DEPARTURE SPREAD RADIUS (km)</label><input id="snare-start-spread" type="number" min="0" max="1000000000" step="any" inputmode="decimal" required>
+    <label for="snare-end-spread">ARRIVAL SPREAD RADIUS (km)</label><input id="snare-end-spread" type="number" min="0" max="1000000000" step="any" inputmode="decimal" required>
+    <label for="snare-margin">SAFETY MARGIN INSIDE SNARE (km)</label><input id="snare-margin" type="number" min="0" step="any" value="2" inputmode="decimal" required>
+    <label for="snare-min-travel">MINIMUM QT TRAVEL BEFORE CATCH (km)</label><input id="snare-min-travel" type="number" min="0" step="any" value="10000" inputmode="decimal" required>
+    <label for="snare-end-buffer">MINIMUM DISTANCE BEFORE LEG END (km)</label><input id="snare-end-buffer" type="number" min="0" step="any" value="100" inputmode="decimal" required></details>
+    <p id="snare-error" class="error" role="alert"></p><button id="snare-calculate" class="primary full">Calculate snare position</button></form>
+    <section id="snare-results" hidden><h3>Suggested setup point</h3><dl id="snare-stats" class="profile-stats"></dl><p id="snare-instructions"></p><button id="snare-focus" class="primary full" type="button">Show snare on map</button>
+    <h3>Check your position</h3><p>Use distances to the named marker centres, in kilometres. Leave measurements blank until you read them in game. Three ranges can produce two mirrored positions; both are reported.</p>
+    <form id="snare-check-form" novalidate><div id="snare-references"></div><label for="snare-position">OR YOUR SAME-SYSTEM X, Y, Z (metres)</label><textarea id="snare-position" rows="2" maxlength="200" placeholder="X, Y, Z — optional coordinate alternative"></textarea><p class="hint">Coordinates take precedence over range measurements. Keep the same system and world reference frame as the plan. Prefer coordinates for narrow corridors: distant-marker range rounding can create large position errors.</p><button id="snare-verify" class="full">Check my position</button></form><div id="snare-check-result" role="status" aria-live="polite"></div><details><summary>Setup coordinates (metres)</summary><pre id="snare-coordinates"></pre></details></section>
+    <details><summary>How this estimate works &amp; sources</summary><p>The corridor radius interpolates linearly between your departure and arrival spread. The planner keeps that corridor inside the snare with your margin, excludes local flight and jump tunnels, removes body-clearance intervals, then selects the midpoint of the widest remaining interval.</p><p>Body clearance uses the greater of four body radii, extracted obstruction radius or arrival radius, plus snare radius and margin. This is a heuristic, not a measured physics-grid or armistice boundary. Rotating cities/stations, live departure geometry, server state and patch-specific minimum snare travel can invalidate the estimate. The 10,000 km minimum is an editable community planning assumption.</p><p>Green-zone check range in the installed device: <span id="snare-green-zone"></span>. Armistice-zone volumes are not mapped; this tool cannot establish whether activation is permitted at a point. A snare also catches unrelated passing traffic.</p><p>Device values come from the installed Reynie DataCore record. <a href="https://robertsspaceindustries.com/en/comm-link/engineering/17270-Q-A-RSI-Mantis" target="_blank" rel="noopener noreferrer">RSI Mantis Q&amp;A</a> · <a href="https://snareplan.dolus.eu/" target="_blank" rel="noopener noreferrer">SnarePlan operator reference</a>. Geometry is independently implemented; no live ship tracking or catch probability is provided.</p></details>`;
+  document.body.append(dialog);$('#snare-close').onclick=()=>dialog.close();$('#snare-form').onsubmit=calculateSnare;$('#snare-check-form').onsubmit=verifySnare;$('#snare-focus').onclick=()=>focusSnare();$('#snare-leg').onchange=()=>{map.snarePlan=null;map.invalidate();snareDefaults();};
+  $('#snare-green-zone').textContent=catalog.interdiction?catalog.interdiction.greenZoneCheckRange/1000+' km':'unavailable';
+  $('#route-summary').before(snareButton());
+  $('#snare-form').addEventListener('input',()=>{map.snarePlan=null;snareReferences=[];$('#snare-results').hidden=true;map.invalidate();});
+}
 function updateLocationPickers(){
   for(const id of ['origin','destination','report-location']){
     const control=$('#'+id),button=$('#pick-'+id);if(!button)continue;
@@ -661,6 +754,7 @@ async function start() {
     map = new StarMap($('#map'), bodies, (b,focus=true) => selectBody(b,focus), (t, r) => r ? focusActivity(r) : report(t));
     map.belts=catalog.belts||[];
     setupCockpit();
+    setupSnarePlanner();
     map.systems = catalog.systems || [{
       id: 'stanton',
       name: 'Stanton',
@@ -734,6 +828,7 @@ async function syncGame() {
       map.systems = fresh.systems || map.systems;
       map.globeTextures.cache.clear();
       activeRoute = null;
+      clearSnare();
       selected = null;
       map.route = null;
       map.routePlan = null;

@@ -553,6 +553,7 @@ body main>#sidebar{grid-column:1;grid-row:1}body main>#map-area{grid-column:2;gr
 
 /* V1 cockpit controls share the existing forms and API paths. */
 .location-source{display:none!important}
+.snare-open{border-color:#cc81ad;color:#ffd2eb;margin-block:6px}#snare-dialog{width:min(600px,calc(100% - 16px));max-height:90dvh;overflow:auto}#snare-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}#snare-dialog .profile-stats{grid-template-columns:minmax(0,1fr) auto;font-size:12px}#snare-dialog .profile-stats dd{font-size:14px}#snare-check-result{padding-block:12px}#snare-results,#snare-check-result{scroll-margin-top:80px}#snare-dialog details p{font-size:12px}#snare-form details input{min-height:48px}
 .location-picker-button{display:block;width:100%;min-height:48px;text-align:left;white-space:normal;overflow-wrap:anywhere;border-color:#6b9eb1}
 .location-picker-button::after{content:'⌕';float:right;color:var(--cyan);margin-left:8px}
 #location-picker{width:min(560px,calc(100% - 24px));max-height:90dvh}

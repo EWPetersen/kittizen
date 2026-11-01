@@ -6,6 +6,7 @@ import {MapModels} from './models.js';
 import {StarSurfaces,stellarRadius,stellarFocusSpan,drawStar,drawOrbitalLight,starColor} from './stars.js';
 import {PORTAL_SPAN,portalRadius,drawJumpPortal,animatePortal} from './portals.js';
 import {drawBelts} from './belts.js';
+import {drawSnare} from './interdiction.js';
 import {globeResolution,modelResolution} from './render-budget.js';
 export const LOCATION_FOCUS_PULLBACK=3.5;
 // Stable candidate order and remembered anchor choices reduce label swapping while orbiting.
@@ -840,6 +841,7 @@ export class StarMap {
       if(!body||body.system!==this.system)continue;const [x,y]=this.project(body.position);
       c.strokeStyle=role==='origin'?'#9bffda':'#ffa1d2';c.fillStyle=c.strokeStyle;c.lineWidth=2;c.beginPath();c.arc(x,y,12,0,Math.PI*2);c.stroke();c.font='bold 11px Arial';c.fillText(role==='origin'?'A':'B',x-4,y+4);
     }
+    if(this.snarePlan?.system===this.system)drawSnare(c,this.snarePlan,p=>this.project(p),this.scale,this.w,this.h);
     document.querySelector('#scale').textContent = this.span<1e6?(this.span/1000).toFixed(this.span<10000?1:0)+' km / VIEW':(this.span / 1e9).toFixed(this.span < 1e9 ? 3 : 1) + ' M km / VIEW';
   }
 }

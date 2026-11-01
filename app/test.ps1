@@ -9,3 +9,5 @@ if ($Node -eq 'node' -and (Test-Path -LiteralPath $bundledNode)) { $Node = $bund
 if ($LASTEXITCODE -ne 0) { throw 'Python checks failed.' }
 & $Node --test (Join-Path $PSScriptRoot 'tests\map.test.mjs') (Join-Path $PSScriptRoot 'tests\geometry.test.mjs') (Join-Path $PSScriptRoot 'tests\render-performance.test.mjs') (Join-Path $PSScriptRoot 'tests\heatmap.test.mjs') (Join-Path $PSScriptRoot 'tests\v3.test.mjs') (Join-Path $PSScriptRoot 'tests\ship-builds.test.mjs')
 if ($LASTEXITCODE -ne 0) { throw 'JavaScript checks failed.' }
+& $Node --test (Join-Path $PSScriptRoot 'tests\interdiction.test.mjs')
+if ($LASTEXITCODE -ne 0) { throw 'Interdiction checks failed.' }
