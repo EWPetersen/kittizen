@@ -7,11 +7,24 @@ import {MapModels} from './models.js';
 export function labelPriority(body,selected=false) {
   return body.kind==='planet'?0:body.kind==='star'?1:body.kind==='moon'?2:selected?3:body.kind==='gateway'?4:body.kind==='om'?5:6;
 }
+// Detail belongs to the current scale, rather than to a particular system.
+export function detailSpan(body,container) {
+  if(['planet','star','body','gateway'].includes(body.kind))return Infinity;
+  if(body.kind==='moon')return 3e9;
+  if(body.kind==='lagrange')return 1e10;
+  if(container?.kind==='lagrange')return 3e10;
+  return 3e9;
+}
+export function markerFits(point,occupied,spacing) {
+  return !occupied.some(p=>Math.hypot(point.x-p.x,point.y-p.y)<Math.max(spacing,(p.r||0)+12));
+}
 export function layoutLabels(candidates,width,height,previous=new Map(),obstacles=[]) {
   const placed=[],anchors=new Map();
   const overlaps=(a,b)=>a.x<b.x+b.w+5&&a.x+a.w+5>b.x&&a.y<b.y+b.h+4&&a.y+a.h+4>b.y;
-  const budget=width<500?8:16;
-  for(const item of [...candidates].sort((a,b)=>a.priority-b.priority||Number(previous.has(b.id))-Number(previous.has(a.id))||a.id.localeCompare(b.id))){
+  const budget=width<500?8:14,detailBudget=width<500?3:6;let detailCount=0;
+  for(const item of [...candidates].sort((a,b)=>a.priority-b.priority||Number(!!b.selected)-Number(!!a.selected)||(a.major&&b.major?(b.body?.radius||0)-(a.body?.radius||0):0)||Number(previous.has(b.id))-Number(previous.has(a.id))||a.id.localeCompare(b.id))){
+    const detail=!item.major&&!item.selected&&!item.important;
+    if(detail&&detailCount>=detailBudget)continue;
     const offscreen=item.x<0||item.x>width||item.y<0||item.y>height;
     if(offscreen&&(!item.major||item.x+item.r<0||item.x-item.r>width||item.y+item.r<0||item.y-item.r>height))continue;
     const w=Math.min(item.width+14,width-16),h=item.major?23:20,gap=(item.major?Math.min(item.r,Math.min(width,height)*.4):Math.max(item.r,item.selected?20:14))+10;
@@ -20,7 +33,7 @@ export function layoutLabels(candidates,width,height,previous=new Map(),obstacle
     for(const index of order){
       const [dx,dy]=positions[index];const box={x:Math.max(8,Math.min(width-w-8,item.x+dx)),y:Math.max(8,Math.min(height-h-8,item.y+dy)),w,h,item};
       if(placed.some(other=>overlaps(box,other))||obstacles.some(other=>overlaps(box,other)))continue;
-      placed.push(box);anchors.set(item.id,index);break;
+      placed.push(box);anchors.set(item.id,index);if(detail)detailCount++;break;
     }
     if(placed.length>=budget)break;
   }
@@ -149,7 +162,7 @@ export class StarMap {
   setBodies(bodies) {
     this.bodies = bodies;
     this.byId = new Map(bodies.map(b => [b.id, b]));
-    this.labelAnchors=new Map();this.labelVisibility=new Set();
+    this.labelAnchors=new Map();this.labelVisibility=new Set();this.markerVisibility=new Set();
   }
   drawHeatmap(now=Date.now()/1000){
     const points=this.reports.filter(r=>(r.system||'stanton')===this.system).map(r=>{
@@ -225,7 +238,7 @@ export class StarMap {
   setSystem(id) {
     if (id !== 'universe' && !this.systems.some(s => s.id === id)) return;
     this.system = id;
-    this.labelAnchors.clear();this.labelVisibility.clear();
+    this.labelAnchors.clear();this.labelVisibility.clear();this.markerVisibility.clear();
     this.selected = null;
     this.home();
     this.onSystemChanged?.(id);
@@ -544,8 +557,11 @@ export class StarMap {
         }
       }
     } else if (this.route) line(this.route.map(b => b.position), '#a9dcff', 2, [7, 5]);
-    const priority = b => b.kind === 'planet' ? 0 : b.kind === 'moon' ? 1 : b.kind === 'star' ? 2 : b.id === this.selected ? 99 : 4;
-    const sorted = [...visibleBodies].sort((a, b) => priority(a) - priority(b));
+    const routeNames=new Set(this.routePlan?.legs.filter(l=>l.system===this.system).flatMap(l=>[l.startName,l.endName])||[]);
+    const important=b=>b.id===this.selected||this.route?.some(p=>p.id===b.id)||routeNames.has(b.name);
+    const priority = b => labelPriority(b,important(b));
+    const sorted = [...visibleBodies].sort((a,b)=>priority(a)-priority(b)||Number(this.markerVisibility.has(b.id))-Number(this.markerVisibility.has(a.id))||a.id.localeCompare(b.id));
+    const occupied=[],markers=new Set();
     for (let b of sorted) {
       let [x, y] = this.project(b.position);
       const bound = Math.max(30, (b.radius || 0) * this.scale);
@@ -555,13 +571,16 @@ export class StarMap {
       if (b.hidden) continue;
       if (b.category === 'auxiliary' && this.selected !== b.id) continue;
       let major = ['planet', 'star', 'gateway', 'body'].includes(b.kind);
+      const pinned=important(b),selected=this.selected===b.id;
       const parent = this.surfaceParent(b);
-      if (parent && this.span > parent.radius * 25 && b.kind !== 'moon') continue;
+      if (!pinned&&!major&&parent && this.span > parent.radius * 25 && b.kind !== 'moon') continue;
       if (parent && this.span < parent.radius * 25 && this.occluded(b.position, parent)) continue;
       const container = this.byId.get(b.parent);
-      if (!major && this.span > 3e9 && b.kind !== 'lagrange' && container?.kind !== 'lagrange') continue;
-      let selected = this.selected === b.id;
+      if(!pinned&&this.span>detailSpan(b,container)*(this.markerVisibility.has(b.id)?1.18:1))continue;
+      // Do not draw a cloud of diamonds over a planet or at the same station hub.
+      if(!major&&b.kind!=='moon'&&!pinned&&!markerFits({x,y},occupied,this.w<500?42:30))continue;
       let r = b.kind === 'star' ? 10 : b.radius > 0 ? Math.max(b.kind === 'planet' ? 13 : 7, b.radius * this.scale) : 4;
+      occupied.push({x,y,r:major||b.kind==='moon'?Math.min(r,60):4});markers.add(b.id);
       let color = b.kind === 'star' ? '#e7ce90' : b.kind === 'gateway' ? '#d9bf88' : b.kind === 'planet' ? '#86c8d0' : '#6b9ca8';
       const model=b.model&&this.span<4e8&&(!parent||this.span<parent.radius*12)?this.mapModels.get(b,this.yaw,this.pitch):null;
       if(model){
@@ -589,14 +608,22 @@ export class StarMap {
           c.stroke();
         }
       } else {
-        c.strokeStyle = selected ? '#ecf5f5' : color;
+        c.strokeStyle = pinned ? '#ecf5f5' : b.kind==='gateway'?color:'#6b9ca890';
         c.lineWidth = selected ? 2 : 1;
         c.beginPath();
+        if(!pinned&&b.kind==='om'){
+          c.arc(x,y,2.5,0,Math.PI*2);
+        }else if(!pinned&&b.kind==='lagrange'){
+          c.moveTo(x-3,y);c.lineTo(x+3,y);c.moveTo(x,y-3);c.lineTo(x,y+3);
+        }else if(!pinned&&!major){
+          c.rect(x-3,y-3,6,6);
+        }else{
         c.moveTo(x, y - r - 2);
         c.lineTo(x + r + 2, y);
         c.lineTo(x, y + r + 2);
         c.lineTo(x - r - 2, y);
         c.closePath();
+        }
         c.stroke();
       }
       this.hits.push({
@@ -608,15 +635,16 @@ export class StarMap {
       const prominent=major||b.kind==='moon';
       const threshold=b.kind==='om'?35:100;
       const pixels=parent?parent.radius*this.scale:Infinity;
-      const allowed=prominent||selected||pixels>(this.labelVisibility.has(b.id)?threshold*.82:threshold);
+      const allowed=prominent||pinned||pixels>(this.labelVisibility.has(b.id)?threshold*.82:threshold);
       if(!allowed){this.labelVisibility.delete(b.id);continue;}
       this.labelVisibility.add(b.id);
       c.font = (prominent ? '12' : '10') + 'px Arial';
       let text=b.name;const limit=selected?190:145;
       while(text.length>4&&c.measureText(text).width>limit)text=text.slice(0,-2);
       if(text!==b.name)text+='…';
-      labels.push({id:b.id,x,y,r,text,width:c.measureText(text).width,body:b,selected,major:prominent,priority:labelPriority(b,selected)});
+      labels.push({id:b.id,x,y,r,text,width:c.measureText(text).width,body:b,selected,important:pinned,major:prominent,priority:labelPriority(b,pinned)});
     }
+    this.markerVisibility=markers;
     this.drawHeatmap();
     const obstacles=[];
     for(const overlay of document.querySelectorAll?.('.map-title,.map-controls,#heat-legend,#report,.map-bottom,.map-help')||[]){
@@ -626,7 +654,10 @@ export class StarMap {
     const layout=layoutLabels(labels,this.w,this.h,this.labelAnchors,obstacles);this.labelAnchors=layout.anchors;
     for(const box of layout.placed){
       const b=box.item;c.font=(b.major?'12':'10')+'px Arial';
-      c.strokeStyle=b.selected?'#aadff0aa':'#6c9da44d';c.lineWidth=.7;c.beginPath();c.moveTo(b.x,b.y);c.lineTo(Math.max(box.x,Math.min(box.x+box.w,b.x)),box.y+box.h/2);c.stroke();
+      const end=[Math.max(box.x,Math.min(box.x+box.w,b.x)),box.y+box.h/2],dx=end[0]-b.x,dy=end[1]-b.y,distance=Math.hypot(dx,dy)||1;
+      // A globe's leader starts at its limb, never across the whole surface.
+      const inset=b.major?Math.min(b.r,distance):0;
+      c.strokeStyle=b.selected?'#aadff0aa':'#6c9da44d';c.lineWidth=.7;c.beginPath();c.moveTo(b.x+dx/distance*inset,b.y+dy/distance*inset);c.lineTo(...end);c.stroke();
       c.fillStyle='#081623dc';c.fillRect(box.x,box.y,box.w,box.h);
       c.fillStyle=b.selected?'#f1fbff':b.major?'#c2e8ee':'#9fc7d1';c.fillText(b.text,box.x+7,box.y+(b.major?16:14));
       if(b.body)this.hits.push({x:box.x+box.w/2,y:box.y+box.h/2,r:0,box,body:b.body});

@@ -64,3 +64,22 @@ test('surface activity focuses the POI hemisphere and its exact marker',()=>{
  }
  assert.equal(map.focusReport({position:[NaN,0,0]}),false);
 });
+
+test('system overviews keep celestial bodies and gates ahead of station detail',()=>{
+ const {map}=fixture();for(const system of ['stanton','pyro','nyx']){
+  map.setSystem(system);map.draw();const markers=map.hits.filter(h=>h.body&&!h.box);
+  assert.ok(markers.some(h=>h.body.kind==='planet'));
+  if(system==='pyro')assert.ok(markers.some(h=>h.body.name==='Pyro IV'),'Pyro IV remains a planet even though it orbits Pyro V');
+  assert.ok(markers.every(h=>['planet','star','gateway','body'].includes(h.body.kind)),system);
+ }
+});
+
+test('a searched station remains visible at overview scale and local detail is spaced',()=>{
+ const {map}=fixture();map.setSystem('pyro');
+ const station=catalog.bodies.find(b=>b.system==='pyro'&&b.kind==='station'&&catalog.bodies.find(p=>p.id===b.parent)?.kind==='lagrange');
+ map.selected=station.id;map.center=[...station.position];map.draw();assert.ok(map.hits.some(h=>h.body?.id===station.id));
+ map.focus(catalog.bodies.find(b=>b.name==='microTech'));map.draw();
+ const secondary=map.hits.filter(h=>h.body&&!h.box&&!['planet','moon','star','body','gateway'].includes(h.body.kind)&&h.body.id!==map.selected);
+ for(let i=0;i<secondary.length;i++)for(let j=0;j<i;j++)assert.ok(Math.hypot(secondary[i].x-secondary[j].x,secondary[i].y-secondary[j].y)>=30);
+ const labels=map.hits.filter(h=>h.box&&!h.box.item.major&&!h.box.item.selected&&!h.box.item.important);assert.ok(labels.length<=6);
+});
