@@ -160,6 +160,13 @@ test('searching another planet from a close POI starts with its local orbits',()
  const {map}=fixture();map.focus(catalog.bodies.find(b=>b.name==='Klescher Rehabilitation Facility'));map.focus(catalog.bodies.find(b=>b.name==='microTech'));assert.equal(map.view.level,'orbits');
 });
 
+test('local orbits keep city/station labels without facility art covering the planet',()=>{
+ const {map}=fixture(),planet=catalog.bodies.find(b=>b.name==='microTech'),facilities=['New Babbage','Port Tressler'].map(name=>catalog.bodies.find(b=>b.name===name)),requested=[];
+ map.mapModels.get=b=>{requested.push(b.id);return null;};map.focus(planet);map.draw();
+ for(const b of facilities){assert.ok(map.hits.some(h=>h.box&&h.body?.id===b.id),b.name+' label');assert.ok(!map.hits.some(h=>!h.box&&h.body?.id===b.id),b.name+' has no invisible glyph target');assert.ok(!requested.includes(b.id),b.name+' art deferred');}
+ map.focus(planet);map.draw();assert.ok(facilities.some(b=>requested.includes(b.id)),'facility art becomes available in the body view');
+});
+
 test('rapid Back during a focus animation cannot restore the abandoned close-up',()=>{
  const {map}=fixture(),station=catalog.bodies.find(b=>b.name==='Seraphim Station');globalThis.matchMedia=()=>({matches:false});
  try{map.focus(station);map.stepOut();map.stepOut();const move=map.transition;map.advanceCamera(move.time+move.duration);assert.equal(map.view.level,'orbits');assert.equal(map.byId.get(map.selected).name,'Crusader');assert.equal(map.span,map.localSpan(map.byId.get(map.selected)));}finally{delete globalThis.matchMedia;}

@@ -666,6 +666,7 @@ export class StarMap {
       const major = prominent(b);
       const pinned=important(b),selected=this.selected===b.id;
       const parent = this.surfaceParent(b);
+      const orbitFacility=this.view?.level==='orbits'&&parent&&!(b.radius>0)&&b.kind!=='om';
       if (!pinned&&!major&&parent && this.span > parent.radius * 25 && b.kind !== 'moon') continue;
       if (parent && this.span < parent.radius * 6 && this.occluded(b.position, parent)) continue;
       const container = this.byId.get(b.parent);
@@ -677,8 +678,11 @@ export class StarMap {
       let color = b.kind === 'star' ? '#e7ce90' : b.kind === 'gateway' ? '#d9bf88' : b.kind === 'planet' ? '#86c8d0' : '#6b9ca8';
       const detailedModel=b.modelRole!=='symbol'&&this.span<4e8&&(!parent||this.span<parent.radius*12);
       // Share one fixed silhouette per game mesh until a close-up needs camera rotation.
-      const model=b.model&&b.kind!=='gateway'?this.mapModels.get(b.modelRole==='symbol'?{...b,rotation:[1,0,0,0]}:b,detailedModel?this.yaw:0,detailedModel?this.pitch:-.6,modelResolution(detailedModel?(b.modelSize||1000)*this.scale:12,moving,Math.min(this.w,this.h))):null;
-      if(b.kind==='star'){
+      const model=!orbitFacility&&b.model&&b.kind!=='gateway'?this.mapModels.get(b.modelRole==='symbol'?{...b,rotation:[1,0,0,0]}:b,detailedModel?this.yaw:0,detailedModel?this.pitch:-.6,modelResolution(detailedModel?(b.modelSize||1000)*this.scale:12,moving,Math.min(this.w,this.h))):null;
+      if(orbitFacility){
+        // At local-orbit scale, city/station art would cover the globe. Keep
+        // selectable labels, but defer both art loading and glyph hit targets.
+      }else if(b.kind==='star'){
         drawStar(c,this.starSurfaces,b,x,y,r);
       }else if(b.kind==='gateway'){
         r=portalRadius(this.span,Math.min(this.w,this.h));
@@ -730,8 +734,8 @@ export class StarMap {
         }
         c.stroke();
       }
-      const displayR=model?r*(model.meshRadius||1):r;
-      this.hits.push({
+      const displayR=orbitFacility?Math.max(parent.kind==='planet'?13:7,parent.radius*this.scale):model?r*(model.meshRadius||1):r;
+      if(!orbitFacility)this.hits.push({
         x,
         y,
         r: Math.max(18, displayR + 6),
