@@ -22,6 +22,8 @@ let catalog, bodies, map, catalogRevision = null,
 // Shards change between game sessions: require an explicit choice on each visit.
 let currentShard = '';
 let presenceRequest=0,shardListExpiry;
+const compactQuery='(max-width:1100px), (pointer:coarse)';
+const compact=()=>matchMedia(compactQuery).matches;
 const api = async (path, data) => {
   let response = await fetch('/api/' + path, data ? {
     method: 'POST',
@@ -46,9 +48,10 @@ function toast(message) {
 function panel(id) {
   document.body.classList.remove('panel-sidebar', 'panel-intel');
   if (id !== 'map-area') document.body.classList.add('panel-' + id);
-  document.querySelectorAll('#mobile-nav button').forEach(b => b.classList.toggle('active', b.dataset.panel === id));
-  if (id === 'intel') document.body.classList.toggle('intel-open');
+  document.querySelectorAll('#mobile-nav button').forEach(b => {const active=b.dataset.panel===id;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});
+  document.body.classList.toggle('intel-open',id==='intel');
   updatePanelToggles();
+  if(id==='sidebar'&&compact())$('#sidebar').scrollTop=0;
   map?.invalidate();
 }
 document.querySelectorAll('[data-panel]').forEach(b => b.onclick = () => panel(b.dataset.panel));
@@ -165,6 +168,7 @@ function joinShard(s,system){
   map.invalidate();
   loadReports();
   $('#map-shard').textContent = s;
+  if(compact())panel('map-area');
   toast('Joined ' + s);
 }
 async function loadReports() {
@@ -190,9 +194,12 @@ async function loadReports() {
   }
 }
 
+let reportRenderKey='';
 function renderReports() {
   reports=reports.filter(r=>Number.isFinite(Number(r.created))&&Date.now()/1000-Number(r.created)<7200);
   let shown = reports.filter(r => (map?.system==='universe'||r.system===map?.system)&&(!$('#filter').value || r.kind === $('#filter').value));
+  const key=JSON.stringify([currentShard,map?.system,$('#filter').value,user?.id,Math.floor(Date.now()/60000),shown]);
+  if(key===reportRenderKey){map?.invalidate();return;}reportRenderKey=key;
   $('#reports').replaceChildren();
   $('#report-count').textContent = String(shown.length).padStart(2, '0');
   $('#mobile-count').textContent = reports.length || '';
@@ -255,6 +262,8 @@ function focusActivity(r) {
   if(!map.focusReport(r))return toast('This report has no mapped position');
   $('#map-name').textContent=r.kind+' · '+r.location;
   $('#map-subtitle').textContent='Reported activity / '+(r.system||'stanton').toUpperCase();
+  const body=map.byId.get(r.locationId);selected=body||null;
+  if(body)mapLocationActions(body);else if($('#map-location-actions'))$('#map-location-actions').hidden=true;
   panel('map-area');
 }
 
@@ -263,6 +272,7 @@ function chooseRoutePoint(id,b){
   if(!b)return;const other=map.routePins?.[id==='origin'?'destination':'origin'];
   if(other?.id===b.id)return toast('Choose two different locations');
   $('#'+id).value=b.id;map.routePins={...(map.routePins||{}),[id]:b};
+  updateLocationPickers();
   if(map.routePins.origin&&map.routePins.destination){plot(map.routePins.origin.id,map.routePins.destination.id);return;}
   routeRequest++;activeRoute=null;map.route=null;map.routePlan=null;
   $('#plot').disabled=false;$('#route-itinerary')?.replaceChildren();$('#route-summary').textContent=(id==='origin'?'Departure: ':'Destination: ')+b.name+' · select '+(id==='origin'?'a destination':'a departure')+' on the map.';
@@ -278,6 +288,9 @@ function mapLocationActions(b){
   root.hidden=false;root.replaceChildren();
   for(const [id,label] of [['origin','Depart here'],['destination','Route here']]){const button=el('button',label);button.id='map-'+id;button.onclick=()=>chooseRoutePoint(id,b);root.append(button);}
   root.append(mapResetButton());
+  if(b.kind==='gateway'&&map.systems.some(s=>s.id===b.destinationSystem)){
+    const travel=el('button','Travel to '+map.systems.find(s=>s.id===b.destinationSystem).name);travel.onclick=()=>jumpToSystem(b.destinationSystem);root.append(travel);
+  }
   if(map.belts?.some(belt=>belt.parent===b.id)){
     const view=el('button','Ring & orbits');view.onclick=()=>{map.focusSystem(b);selectBody(b,false);};root.append(view);
   }
@@ -285,6 +298,7 @@ function mapLocationActions(b){
 function selectBody(b, focus = true) {
   if (map.system !== b.system && b.system) map.setSystem(b.system);
   selected = b;
+  recentLocations=[b.id,...recentLocations.filter(id=>id!==b.id)].slice(0,8);
   map.selected = b.id;
   if (focus) map.focus(b);
   $('#map-name').textContent = b.name;
@@ -348,7 +362,7 @@ function search() {
     }
     return;
   }
-  let list = bodies.filter(b => !b.hidden && b.name.toLowerCase().replace(/[\s_-]/g, '').includes(q) && (!q ? b.system === map.system && ['planet', 'star'].includes(b.kind) : true)).slice(0, 24);
+  let list = bodies.filter(b => !b.hidden && b.name.toLowerCase().replace(/[\s_-]/g, '').includes(q) && (!q ? b.system === map.system && (['planet', 'star'].includes(b.kind)||b.mapImportance==='primary'||recentLocations.includes(b.id)) : true)).slice(0, 24);
   for (let b of list) {
     let row = el('button', undefined, 'result');
     row.append(el('span', b.name), el('small', bodies.find(p => p.id === b.parent)?.name || b.kind));
@@ -387,6 +401,7 @@ async function plot(origin = $('#origin').value, destination = $('#destination')
     };
     $('#origin').value = a.id;
     $('#destination').value = b.id;
+    updateLocationPickers();
     map.routePins={origin:a,destination:b};
     map.setPlan(plan);
     $('#route-summary').textContent = `${a.name} → ${b.name} · ${(plan.totalDistance/1e9).toFixed(3)} M km · ${plan.legs.filter(l=>l.kind==='jump').length} jumps. Amber = local flight; green = quantum. OM numbering and flight model are approximations.`;
@@ -427,6 +442,7 @@ $('#clear-route').onclick = () => {
   activeRoute = null;
   map.route = null;
   map.routePlan = null;
+  for(const id of ['origin','destination'])$('#'+id).value='';updateLocationPickers();
   $('#route-itinerary')?.replaceChildren();
   map.marker = null;
   map.invalidate();
@@ -506,12 +522,13 @@ function placement() {
 function report(fraction) {
   if (!currentShard) {
     panel('sidebar');
+    if(compact())$('#shard-region').scrollIntoView({block:'center'});
     return toast('Join a shard before reporting');
   }
   if (!needUser()) return;
   const routeAvailable=activeRoute?.plan?.totalDistance>0;
   $('#report-location').replaceChildren(option('','Choose a mapped location'));
-  $('#report-location').required=true;
+  $('#report-location').required=false;
   if (routeAvailable) $('#report-location').append(option('@route', 'Along planned flight route'));
   for (let b of bodies.filter(b => !b.hidden)) $('#report-location').append(option(b.id, b.name));
   $('#report-location').value = typeof fraction === 'number' && routeAvailable ? '@route' : selected?.id || (routeAvailable ? '@route' : '');
@@ -521,6 +538,7 @@ function report(fraction) {
   $('#report-error').textContent = '';
   placement();
   $('#report-dialog').showModal();
+  updateLocationPickers();
 }
 $('#report').onclick = () => report();
 $('#report-location').onchange = placement;
@@ -548,6 +566,7 @@ $('#report-dialog').addEventListener('close', () => {
 });
 $('#report-form').onsubmit = async e => {
   e.preventDefault();
+  if(!$('#report-location').value){$('#report-error').textContent='Choose where this happened.';$('#pick-report-location').focus();return;}
   let button = e.target.querySelector('button.primary');
   button.disabled = true;
   try {
@@ -577,12 +596,71 @@ $('#refresh').onclick = loadReports;
 $('#filter').onchange = renderReports;
 $('#shard-help').onclick = () => $('#shard-help-dialog').showModal();
 $('#trust-info').onclick = () => $('#info-dialog').showModal();
+
+// Small touch enhancements share the existing form controls and API paths.
+let pickerTarget=null,recentLocations=[];
+function updateLocationPickers(){
+  for(const id of ['origin','destination','report-location']){
+    const control=$('#'+id),button=$('#pick-'+id);if(!button)continue;
+    button.textContent=control.selectedOptions[0]?.textContent||'Choose a location';
+    button.setAttribute('aria-label',(id==='origin'?'Departure':id==='destination'?'Destination':'Reported location')+': '+button.textContent);
+  }
+}
+function renderLocationPicker(){
+  const list=$('#location-picker-results'),query=$('#location-query').value.toLowerCase().replace(/[\s_-]/g,''),system=$('#location-system').value;
+  list.replaceChildren();
+  if(pickerTarget==='report-location'&&activeRoute?.plan?.totalDistance>0&&!query){
+    const route=el('button','Along planned flight route','result');route.type='button';route.onclick=()=>pickLocation('@route');list.append(route);
+  }
+  let candidates=bodies.filter(b=>!b.hidden&&(!system||b.system===system)&&(!query||b.name.toLowerCase().replace(/[\s_-]/g,'').includes(query)));
+  const rank=b=>!query&&recentLocations.includes(b.id)?-3:!query&&selected&&(b.id===selected.id||b.parent===selected.id)?-2:b.mapImportance==='primary'?-1:['planet','star'].includes(b.kind)?0:1;
+  candidates.sort((a,b)=>rank(a)-rank(b)||a.name.localeCompare(b.name));
+  for(const b of candidates.slice(0,40)){
+    const row=el('button',undefined,'result');row.type='button';
+    row.append(el('strong',b.name),el('small',b.system.toUpperCase()+' · '+(bodies.find(p=>p.id===b.parent)?.name||b.kind)));
+    row.onclick=()=>pickLocation(b.id);list.append(row);
+  }
+  $('#location-picker-hint').textContent=candidates.length>40?'Showing 40 of '+candidates.length+' places. Search to narrow the list.':candidates.length?'Choose a place; recent and nearby locations appear first.':'No matching locations. Try another system or a shorter name.';
+}
+function pickLocation(id){
+  const target=pickerTarget;if(!target)return;
+  $('#'+target).value=id;
+  if(id!=='@route')recentLocations=[id,...recentLocations.filter(x=>x!==id)].slice(0,8);
+  $('#location-picker').close();pickerTarget=null;
+  if(target==='report-location')placement();
+  updateLocationPickers();$('#pick-'+target).focus();
+}
+function setupCockpit(){
+  const searchLabel=document.querySelector('label[for="search"]');$('#sidebar .section-head').after(searchLabel,$('#search'),$('#results'));
+  const controls=$('.map-controls'),pan=el('button','Rotate');pan.id='drag-mode';pan.type='button';pan.setAttribute('aria-label','Map drag mode: rotate. Switch to pan');pan.setAttribute('aria-pressed','false');
+  pan.onclick=()=>{map.dragMode=map.dragMode==='pan'?'rotate':'pan';const p=map.dragMode==='pan';pan.textContent=p?'Pan':'Rotate';pan.setAttribute('aria-pressed',String(p));pan.setAttribute('aria-label','Map drag mode: '+(p?'pan. Switch to rotate':'rotate. Switch to pan'));};
+  const tools=el('details',undefined,'map-tools');tools.id='map-tools';const summary=el('summary','Tools'),tray=el('div',undefined,'map-tools-tray');
+  for(const id of ['universe','home','tilt','legend-toggle'])tray.append($('#'+id));tools.append(summary,tray);controls.replaceChildren(tools,$('#back-view'),pan,$('#zoom-out'),$('#zoom-in'));
+  tray.addEventListener('click',e=>{if(e.target.closest('button')){tools.open=false;map.invalidate();}});
+  const picker=el('dialog');picker.id='location-picker';picker.setAttribute('aria-labelledby','location-picker-title');
+  const heading=el('div',undefined,'dialog-heading'),title=el('h2','Choose a location');title.id='location-picker-title';const close=el('button','×');close.type='button';close.setAttribute('aria-label','Close location picker');close.onclick=()=>picker.close();heading.append(title,close);
+  const queryLabel=el('label','FIND A PLACE');queryLabel.htmlFor='location-query';const query=el('input');query.id='location-query';query.type='search';query.placeholder='Station, planet, city or POI';query.autocomplete='off';query.oninput=renderLocationPicker;
+  const scopeLabel=el('label','SYSTEM');scopeLabel.htmlFor='location-system';const scope=el('select');scope.id='location-system';scope.onchange=renderLocationPicker;
+  const hint=el('p',undefined,'hint');hint.id='location-picker-hint';hint.setAttribute('aria-live','polite');const results=el('div',undefined,'results');results.id='location-picker-results';
+  picker.append(heading,queryLabel,query,scopeLabel,scope,hint,results);document.body.append(picker);
+  for(const id of ['origin','destination','report-location']){
+    const select=$('#'+id),button=el('button','Choose a location','location-picker-button');button.type='button';button.id='pick-'+id;button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-controls','location-picker');
+    select.classList.add('location-source');select.tabIndex=-1;select.setAttribute('aria-hidden','true');select.after(button);document.querySelector('label[for="'+id+'"]').htmlFor=button.id;
+    button.onclick=()=>{pickerTarget=id;title.textContent=id==='origin'?'Choose departure':id==='destination'?'Choose destination':'Reported location';query.value='';scope.replaceChildren(option('','All systems'),...map.systems.map(s=>option(s.id,s.name)));scope.value='';renderLocationPicker();picker.showModal();close.focus();};
+  }
+  const kinds=el('div',undefined,'activity-kinds');kinds.setAttribute('role','group');kinds.setAttribute('aria-label','Activity type');
+  for(const value of ['Interdiction','Pirates','Suspicious','Clear']){const button=el('button',value);button.type='button';button.setAttribute('aria-pressed',String($('#kind').value===value));button.onclick=()=>{$('#kind').value=value;for(const b of kinds.children)b.setAttribute('aria-pressed',String(b===button));};kinds.append(button);}
+  $('#kind').classList.add('location-source');$('#kind').tabIndex=-1;$('#kind').setAttribute('aria-hidden','true');$('#kind').after(kinds);document.querySelector('label[for="kind"]').removeAttribute('for');
+  $('#map').setAttribute('aria-label','System map. Drag to rotate or choose Pan. Two fingers pan and pinch to zoom. Tap a location to select. Back steps out one level.');
+  $('.map-help').textContent='DRAG TO ROTATE · CHOOSE PAN TO MOVE · PINCH TO ZOOM · BACK TO STEP OUT';
+}
 async function start() {
   try {
     catalog = await fetch('catalog.json').then(r => r.json());
     bodies = catalog.bodies;
     map = new StarMap($('#map'), bodies, (b,focus=true) => selectBody(b,focus), (t, r) => r ? focusActivity(r) : report(t));
     map.belts=catalog.belts||[];
+    setupCockpit();
     map.systems = catalog.systems || [{
       id: 'stanton',
       name: 'Stanton',
@@ -600,8 +678,8 @@ async function start() {
     $('#provenance').textContent = catalog.currentBuildVerified ? 'Extracted from your installed LIVE game.' : 'Legacy catalogue; current game not verified.';
     for (let id of ['origin', 'destination'])
       for (let b of bodies.filter(b => !b.hidden)) $('#' + id).append(option(b.id, b.name));
-    $('#origin').value = bodies.find(b => b.name === 'Crusader').id;
-    $('#destination').value = bodies.find(b => b.name === 'Hurston').id;
+    for(const id of ['origin','destination']){$('#'+id).prepend(option('','Choose '+(id==='origin'?'departure':'destination')));$('#'+id).value='';}
+    updateLocationPickers();
     $('#home').onclick = () => {
       map.home();
       showSystem(map.system);
@@ -668,6 +746,8 @@ async function syncGame() {
         control.replaceChildren(...bodies.filter(b => !b.hidden).map(b => option(b.id, b.name)));
         if (bodies.some(b => b.id === prior && !b.hidden)) control.value = prior;
       }
+      if($('#location-picker').open)$('#location-picker').close();
+      updateLocationPickers();
       $('#build').textContent = fresh.build;
       $('#selection').replaceChildren();
       $('#route-summary').textContent = 'Game data updated. Plot your jump using the refreshed locations.';
@@ -707,7 +787,8 @@ function showSystem(id) {
 }
 
 function updatePanelToggles(){
-  const mobile=matchMedia('(max-width:700px)').matches,tablet=matchMedia('(max-width:1100px)').matches;
+  const mobile=compact(),tablet=false;
+  document.body.classList.toggle('touch-layout',mobile);
   for(const [side,id,name] of [['nav','sidebar','Navigation'],['intel','intel','Intelligence']]){
     const button=$('#toggle-'+side);if(!button)continue;
     const open=mobile?document.body.classList.contains('panel-'+id):side==='intel'&&tablet?document.body.classList.contains('intel-open'):!document.body.classList.contains(side+'-hidden');
@@ -721,7 +802,7 @@ function setupPanelToggles(){
     if(saved[side]===true)document.body.classList.add(side+'-hidden');
     const button=el('button',undefined,'panel-toggle');button.id='toggle-'+side;button.type='button';button.setAttribute('aria-controls',side==='nav'?'sidebar':'intel');
     button.onclick=()=>{
-      const mobile=matchMedia('(max-width:700px)').matches,tablet=matchMedia('(max-width:1100px)').matches;
+      const mobile=compact(),tablet=false;
       if(mobile){const id=side==='nav'?'sidebar':'intel';panel(document.body.classList.contains('panel-'+id)?'map-area':id);}
       else if(side==='intel'&&tablet){document.body.classList.toggle('intel-open');updatePanelToggles();}
       else{document.body.classList.toggle(side+'-hidden');updatePanelToggles();}
@@ -730,7 +811,7 @@ function setupPanelToggles(){
     };
     document.body.append(button);
   }
-  matchMedia('(max-width:1100px)').addEventListener('change',updatePanelToggles);matchMedia('(max-width:700px)').addEventListener('change',updatePanelToggles);updatePanelToggles();
+  matchMedia(compactQuery).addEventListener('change',updatePanelToggles);updatePanelToggles();
 }
 setupPanelToggles();
 async function updatePresence(){
@@ -746,7 +827,7 @@ function renderActiveShards(data,state='ready'){
   clearTimeout(shardListExpiry);if(state==='ready')shardListExpiry=setTimeout(()=>renderActiveShards(null,'error'),45000);
   let card=$('#active-shards');
   if(!card){
-    card=el('details',undefined,'active-shards');card.id='active-shards';card.open=!matchMedia('(max-width:700px)').matches;
+    card=el('details',undefined,'active-shards');card.id='active-shards';card.open=!compact();
     const summary=el('summary','Active shards'),list=el('div',undefined,'active-shard-list'),hint=el('small',undefined,'hint');
     list.id='active-shard-list';list.setAttribute('aria-label','Active shards on Kittizen');hint.id='active-shard-hint';card.append(summary,list,hint);document.querySelector('.map-title').append(card);
   }

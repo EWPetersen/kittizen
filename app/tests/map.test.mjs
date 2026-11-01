@@ -21,6 +21,29 @@ function fixture(){
  let selected=null,routeHit=null;const bodies=[{id:'a',name:'A',kind:'planet',radius:1000000,position:[1e10,0,0]},{id:'b',name:'B',kind:'planet',radius:1000000,position:[-1e10,0,0]}];
  const map=new StarMap(canvas,bodies,b=>selected=b,t=>routeHit=t);frames=[];map.pending=false;map.draw();return {map,canvas,events,bodies,get selected(){return selected},get routeHit(){return routeHit}};
 }
+
+test('two-finger taps and cancelled gestures never select an object on finger release',()=>{
+ const {map,events,bodies}=fixture();let selections=0;map.onSelect=()=>selections++;map.hits=[{body:bodies[0],x:120,y:180,r:40}];
+ const event=(pointerId,x=120)=>({pointerId,clientX:x,clientY:180,button:0});
+ events.pointerdown(event(1));events.pointerdown(event(2));events.pointerup(event(2));events.pointerup(event(1));assert.equal(selections,0);
+ events.pointerdown(event(3));events.pointercancel(event(3));assert.equal(map.pointers.size,0);
+ events.pointerdown(event(4));events.pointerup(event(4));assert.equal(selections,1);
+});
+
+test('one-finger pan mode moves the camera without rotating and pinch zoom still works',()=>{
+ const {map,events}=fixture();map.dragMode='pan';const before=map.camera();
+ const event=(pointerId,x,y)=>({pointerId,clientX:x,clientY:y,button:0});
+ events.pointerdown(event(1,120,180));events.pointermove(event(1,160,200));events.pointerup(event(1,160,200));
+ assert.equal(map.yaw,before.yaw);assert.equal(map.pitch,before.pitch);assert.notDeepEqual(map.center,before.center);
+ const span=map.span;events.pointerdown(event(2,100,180));events.pointerdown(event(3,200,180));events.pointermove(event(3,250,180));
+ assert.ok(map.span<span);events.pointerup(event(2,100,180));events.pointerup(event(3,250,180));assert.equal(map.multiGesture,false);
+});
+
+test('touch selection gives tiny glyphs a 44px target while mouse picking stays precise',()=>{
+ const {map,bodies}=fixture();let selected=null;map.onSelect=b=>selected=b;map.hits=[{body:bodies[0],x:120,y:180,r:4}];
+ map.click({clientX:140,clientY:180,pointerType:'mouse'});assert.equal(selected,null);
+ map.click({clientX:140,clientY:180,pointerType:'touch'});assert.equal(selected,bodies[0]);
+});
 test('DPR cap and no idle animation loop',()=>{let {map,canvas}=fixture();assert.equal(canvas.width,585);assert.equal(canvas.height,1050);map.invalidate();map.invalidate();assert.equal(frames.length,1);frames.shift()();assert.equal(frames.length,0);});
 
 test('portal artwork stays bounded and changes smoothly without random texture work',()=>{

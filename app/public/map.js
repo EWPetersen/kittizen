@@ -109,7 +109,8 @@ export class StarMap {
       this.pointers.set(e.pointerId, [e.clientX, e.clientY]);
       this.start = [e.clientX, e.clientY];
       this.dragButton = e.button || 0;
-      this.moved = false;
+      this.moved = this.pointers.size>1;
+      if(this.pointers.size>1)this.multiGesture=true;
     });
     canvas.addEventListener('pointermove', e => this.move(e));
     canvas.addEventListener('pointerup', e => {
@@ -124,11 +125,12 @@ export class StarMap {
           x: e.clientX,
           y: e.clientY
         };
-      } else if (!this.moved && this.pointers.size === 1) this.click(e);
+      } else if (!this.moved && !this.multiGesture && this.pointers.size === 1) this.click(e);
       this.pointers.delete(e.pointerId);
+      if(!this.pointers.size)this.multiGesture=false;
       this.invalidate();
     });
-    canvas.addEventListener('pointercancel', e => this.pointers.delete(e.pointerId));
+    canvas.addEventListener('pointercancel', e => {this.pointers.delete(e.pointerId);this.moved=true;if(!this.pointers.size)this.multiGesture=false;});
     canvas.addEventListener('dblclick', e => {
       if (e.button === 2) {
         // Right-button stepping is handled by pointer-up, once per gesture.
@@ -433,7 +435,7 @@ export class StarMap {
       if (this.moved) {
         this.transition = null;
         this.rightTap = null;
-        if (!e.shiftKey && this.dragButton !== 2 && !(e.buttons & 2)) {
+        if (this.dragMode!=='pan' && !e.shiftKey && this.dragButton !== 2 && !(e.buttons & 2)) {
           this.yaw += dx * .006;
           this.pitch = Math.max(-Math.PI / 2 + .01, Math.min(Math.PI / 2 - .01, this.pitch + dy * .006));
         } else {
@@ -448,7 +450,8 @@ export class StarMap {
     let rect = this.canvas.getBoundingClientRect(),
       x = e.clientX - rect.left,
       y = e.clientY - rect.top;
-    let hit = this.hits.filter(h => h.box ? x>=h.box.x&&x<=h.box.x+h.box.w&&y>=h.box.y&&y<=h.box.y+h.box.h : Math.hypot(h.x - x, h.y - y) < h.r).sort((a, b) => (a.box?-1:0)-(b.box?-1:0)||Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
+    const touch=e.pointerType==='touch'||e.pointerType==='pen',padding=touch?6:0;
+    let hit = this.hits.filter(h => h.box ? x>=h.box.x-padding&&x<=h.box.x+h.box.w+padding&&y>=h.box.y-padding&&y<=h.box.y+h.box.h+padding : Math.hypot(h.x - x, h.y - y) < Math.max(h.r,touch?22:0)).sort((a, b) => (a.box?-1:0)-(b.box?-1:0)||Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
     if (hit) {
       if (hit.body?.kind === 'system') this.setSystem(hit.body.id);
       else if (hit.body) {const target=this.navigationTarget(hit.body);this.lastSelection={body:target,x,y,time:e.timeStamp??performance.now()};this.onSelect(target);}
@@ -499,6 +502,8 @@ export class StarMap {
   drawUniverse() {
     const c = this.ctx,
       connections = new Set();
+    const short=this.h<340&&this.w>this.h*1.5;
+    const point=s=>short?[this.w*(this.systems.indexOf(s)+1)/(this.systems.length+1),this.h*.40]:this.project(s.position);
     for (const gate of this.bodies.filter(b => b.kind === 'gateway')) {
       const a = this.systems.find(s => s.id === gate.system),
         b = this.systems.find(s => s.id === gate.destinationSystem);
@@ -506,8 +511,8 @@ export class StarMap {
       const key = [a.id, b.id].sort().join(':');
       if (connections.has(key)) continue;
       connections.add(key);
-      const p = this.project(a.position),
-        q = this.project(b.position),
+      const p = point(a),
+        q = point(b),
         planned = this.routePlan?.systems.some((s, i, list) => i > 0 && [s, list[i - 1]].sort().join(':') === key);
       c.strokeStyle = planned ? '#a9dcff' : '#73909b';
       c.lineWidth = planned ? 2.5 : 1;
@@ -522,7 +527,7 @@ export class StarMap {
       c.fillText('JUMP TUNNEL', (p[0] + q[0]) / 2 - 30, (p[1] + q[1]) / 2 - 10);
     }
     for (const s of this.systems) {
-      const [x, y] = this.project(s.position), radius = Math.max(34, Math.min(76, this.w * .1));
+      const [x, y] = point(s), radius = short?Math.min(54,this.h*.16):Math.max(34, Math.min(76, this.w * .1));
       const planets = this.bodies.filter(b => b.system === s.id && ['planet', 'body'].includes(b.kind));
       const extent = Math.max(1, ...planets.map(b => Math.hypot(...b.position)));
       c.fillStyle = '#08151ef0';
@@ -773,7 +778,7 @@ export class StarMap {
     if(portalMoving)this.portalTimer=setTimeout(()=>{this.portalTimer=null;this.invalidate();},50);
     this.drawHeatmap();
     const obstacles=[];
-    for(const overlay of document.querySelectorAll?.('.map-title,.map-controls,#heat-legend,#report,.map-bottom,.map-help,.panel-toggle')||[]){
+    for(const overlay of document.querySelectorAll?.('.map-title,.map-controls,.map-tools-tray,#map-location-actions,#heat-legend,#report,.map-bottom,.map-help,.panel-toggle')||[]){
       const box=overlay.getBoundingClientRect();if(box.width&&box.height)obstacles.push({x:box.left-rect.left,y:box.top-rect.top,w:box.width,h:box.height});
     }
     for(const report of this.reports){if((report.system||'stanton')!==this.system)continue;const [x,y]=this.project(report.position);obstacles.push({x:x-17,y:y-17,w:34,h:34});}

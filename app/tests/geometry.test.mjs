@@ -14,6 +14,11 @@ function fixture(){const events={},ctx=new Proxy({measureText:t=>({width:t.lengt
 test('Stanton default puts microTech upper right and restores after orbit',()=>{const {map}=fixture(),mt=catalog.bodies.find(b=>b.name==='microTech');let p=map.project(mt.position);assert.ok(p[0]>map.w/2);assert.ok(p[1]<map.h/2);map.yaw=2;map.pitch=1;map.home();map.draw();p=map.project(mt.position);assert.ok(p[0]>map.w/2&&p[1]<map.h/2);});
 test('each system renders only its own physical bodies',()=>{const {map}=fixture();for(const id of ['stanton','pyro','nyx']){map.setSystem(id);map.draw();assert.ok(map.hits.length);assert.ok(map.hits.every(h=>!h.body||h.body.system===id));}});
 test('universe has three distinct system discs and no physical-body mixture',()=>{const {map}=fixture();map.setSystem('universe');map.draw();assert.equal(map.hits.length,3);assert.deepEqual(new Set(map.hits.map(h=>h.body.id)),new Set(['stanton','pyro','nyx']));assert.ok(map.hits.every(h=>h.body.kind==='system'));assert.equal(new Set(map.hits.map(h=>h.x+':'+h.y)).size,3);});
+
+test('short landscape universe keeps system discs separate and above the touch toolbar',()=>{
+ const {map}=fixture();map.canvas.getBoundingClientRect=()=>({width:844,height:278,left:0,top:0});map.setSystem('universe');map.draw();
+ for(const hit of map.hits){assert.ok(hit.y+(hit.r-15)*.7+47<278-82);for(const other of map.hits)if(other!==hit)assert.ok(Math.hypot(hit.x-other.x,hit.y-other.y)>hit.r+other.r);}
+});
 test('zooming out returns to universe',()=>{const {map}=fixture();map.zoom(.1);assert.equal(map.system,'universe');});
 test('double-click an available gate travels to its destination',()=>{const {map,events}=fixture();const gate=catalog.bodies.find(b=>b.kind==='gateway'&&b.system==='stanton'&&b.destinationSystem==='pyro');map.center=[...gate.position];map.span=1e6;map.draw();const hit=map.hits.find(h=>h.body?.id===gate.id);assert.ok(hit);events.dblclick({clientX:hit.x,clientY:hit.y});assert.equal(map.system,'pyro');});
 test('globe inverse rotation preserves game quaternion orientation',()=>{const p=inverseRotate([0,0,0,1],[1,2,3]);assert.deepEqual(p,[-1,-2,3]);});
