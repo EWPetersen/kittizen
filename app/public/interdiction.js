@@ -31,6 +31,19 @@ export function assessPosition(plan,position){
  const spread=plan.startSpread+(plan.endSpread-plan.startSpread)*fraction,eligible=plan.intervals.some(([a,b])=>fraction>=a&&fraction<=b)&&(plan.exclusions||[]).every(b=>norm(sub(position,b.position))>=b.radius),remaining=plan.radius-plan.margin-spread-crossTrack;
  return {fraction,crossTrack,spread,remaining,eligible,covered:eligible&&remaining>=0,distanceToPlan:norm(sub(position,plan.position))};
 }
+export function destinationReference(plan,destination,bodies=[]){
+ if(!plan||!point(plan.position))throw Error('Calculate a snare plan first.');
+ const local=b=>b&&b.system===plan.system&&point(b.position);
+ const endName=plan.leg.endName?.replace(/ (?:arrival boundary|QT exit boundary)$/,'');
+ const reference=local(destination)?destination:bodies.find(b=>local(b)&&b.name===endName)||bodies.filter(b=>local(b)&&!b.hidden&&['planet','moon','star','lagrange'].includes(b.kind)).sort((a,b)=>norm(sub(a.position,plan.leg.end))-norm(sub(b.position,plan.leg.end)))[0];
+ if(!reference)throw Error('No same-system destination reference is available.');
+ const interval=plan.intervals.find(([a,b])=>plan.fraction>=a&&plan.fraction<=b);
+ if(!interval)throw Error('The planned position is outside the eligible route interval.');
+ const along=dot(sub(reference.position,plan.leg.start),plan.axis)/plan.length;
+ const range=t=>norm(sub(add(plan.leg.start,mul(plan.axis,t*plan.length)),reference.position));
+ const nearest=Math.max(interval[0],Math.min(interval[1],along));
+ return {body:reference,distance:norm(sub(plan.position,reference.position)),minimum:range(nearest),maximum:Math.max(range(interval[0]),range(interval[1])),localReference:reference.id!==destination?.id,moving:!['planet','moon','star','lagrange'].includes(reference.kind)};
+}
 // Three range spheres intersect at zero, one or two points. Never hide the mirror.
 export function trilaterate(anchors,ranges,tolerance=1000){
  if(anchors.length!==3||ranges.length!==3||!anchors.every(point)||!ranges.every(r=>Number.isFinite(r)&&r>=0)||!Number.isFinite(tolerance)||tolerance<0)throw Error('Enter three finite, non-negative centre-marker ranges.');

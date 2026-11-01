@@ -1,7 +1,20 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {planSnare,assessPosition,trilaterate,referenceMarkers,parseCoordinates,drawSnare} from '../public/interdiction.js';
+import {planSnare,assessPosition,trilaterate,referenceMarkers,parseCoordinates,drawSnare,destinationReference} from '../public/interdiction.js';
 const leg={kind:'quantum',system:'stanton',start:[0,0,0],end:[1e9,0,0]};
+test('destination reference measures to the real marker centre beyond the QT boundary',()=>{
+ const p=planSnare(leg),body={id:'destination',name:'Planet',kind:'planet',system:'stanton',position:[1.001e9,0,0]},r=destinationReference(p,body);
+ assert.ok(Math.abs(r.distance-p.toEnd-1e6)<1e-6);assert.equal(r.localReference,false);assert.ok(r.minimum<=r.distance&&r.distance<=r.maximum);
+});
+test('off-axis reference ranges use Euclidean geometry and the interior minimum',()=>{
+ const p=planSnare(leg),body={id:'ref',kind:'station',system:'stanton',position:[p.position[0],3e6,4e6]},r=destinationReference(p,body);
+ assert.equal(r.distance,5e6);assert.equal(r.minimum,5e6);assert.ok(r.maximum>r.minimum);assert.equal(r.moving,true);
+});
+test('a cross-system target uses the selected leg local reference, never galactic coordinates',()=>{
+ const p=planSnare({...leg,endName:'Gate arrival boundary'}),target={id:'remote',system:'pyro',position:[1,2,3]},local={id:'gate',name:'Gate',kind:'gateway',system:'stanton',position:[1e9,0,0]};
+ const r=destinationReference(p,target,[local]);assert.equal(r.body.id,'gate');assert.equal(r.localReference,true);assert.equal(r.distance,p.toEnd);
+ assert.throws(()=>destinationReference(p,target,[]));
+});
 test('planner finds finite corridor-contained positions and preserves endpoint buffers',()=>{
  const p=planSnare(leg,{startSpread:1e6,endSpread:10000});assert.ok(p.fromStart>=1e7&&p.toEnd>=1e5);assert.ok(p.spread+p.margin<=p.radius);assert.ok(assessPosition(p,p.position).covered);
  assert.ok(!assessPosition(p,[...p.position.slice(0,1),p.radius,0]).covered);

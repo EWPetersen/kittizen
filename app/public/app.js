@@ -4,7 +4,7 @@ import {
 import {
   positionOnRoute
 } from './route.js';
-import {planSnare,referenceMarkers,trilaterate,assessPosition,parseCoordinates} from './interdiction.js';
+import {planSnare,referenceMarkers,trilaterate,assessPosition,parseCoordinates,destinationReference} from './interdiction.js';
 const $ = s => document.querySelector(s),
   el = (tag, text, cls) => {
     let n = document.createElement(tag);
@@ -628,7 +628,7 @@ function focusSnare(position=map.snarePlan?.position){
   const plan=map.snarePlan;if(!plan||!position)return;
   $('#snare-dialog').close();if(map.system!==plan.system)map.setSystem(plan.system);
   map.flyTo({...map.camera(),center:[...position],span:plan.radius*10});
-  $('#map-name').textContent='Interdiction plan';$('#map-subtitle').textContent=plan.leg.startName+' → '+plan.leg.endName+' · geometric estimate';
+  $('#map-name').textContent='Interdiction plan';$('#map-subtitle').textContent=plan.reference?'Aim for '+(plan.reference.distance/1000).toLocaleString(undefined,{maximumFractionDigits:3})+' km from '+plan.reference.body.name+' centre · stay on the plotted leg':plan.leg.startName+' → '+plan.leg.endName+' · geometric estimate';
   const actions=mapActionRoot();actions.hidden=false;actions.replaceChildren(snareButton(),mapResetButton());panel('map-area');
 }
 function calculateSnare(e){
@@ -637,9 +637,15 @@ function calculateSnare(e){
     const read=id=>{const input=$('#snare-'+id);if(input.value.trim()===''||!input.checkValidity())throw Error('Check the '+id.replaceAll('-',' ')+' value.');return Number(input.value)*1000;};
     const leg=activeRoute.plan.legs[Number($('#snare-leg').value)],plan=planSnare(leg,{radius:catalog.interdiction.snareRadius,margin:read('margin'),startSpread:read('start-spread'),endSpread:read('end-spread'),minTravel:read('min-travel'),endBuffer:read('end-buffer'),bodies});
     map.snarePlan=plan;map.invalidate();
+    const reference=destinationReference(plan,bodies.find(b=>b.id===activeRoute.destination),bodies);plan.reference=reference;
+    const km=value=>(value/1000).toLocaleString(undefined,{minimumFractionDigits:3,maximumFractionDigits:3});
+    $('#snare-reference-name').textContent=(reference.localReference?'LOCAL REFERENCE · ':'DESTINATION REFERENCE · ')+reference.body.name;
+    $('#snare-reference-distance').textContent=km(reference.distance)+' km from centre';
+    $('#snare-reference-window').textContent='Eligible distance band on this leg: '+km(reference.minimum)+'–'+km(reference.maximum)+' km from '+reference.body.name+' centre. Aim for the suggested distance above.';
+    $('#snare-reference-note').textContent=(reference.localReference?'The final destination is in another system; use this local marker for the selected leg. ':'')+'Compare the HUD centre-marker range, not altitude or distance to the QT arrival boundary. Distance alone cannot prove alignment: stay on the selected route and verify your position below.'+(reference.moving?' This marker may rotate or move; its range uses the installed static position.':'');
     const stats=$('#snare-stats');stats.replaceChildren();
     for(const [label,value] of [['Travel from QT leg start',plan.fromStart],['Distance to modeled leg end',plan.toEnd],['Assumed corridor radius here',plan.spread],['Remaining placement budget',plan.placementBudget]])stats.append(el('dt',label),el('dd',(value/1000).toLocaleString(undefined,{maximumFractionDigits:3})+' km'));
-    $('#snare-instructions').textContent='Follow the quantum leg '+leg.startName+' → '+leg.endName+'. Stop near the calculated point and compare the three centre-marker ranges below. Distances to modeled QT boundaries are not HUD marker distances. This creates a map plan, not an in-game waypoint.';
+    $('#snare-instructions').textContent='Follow the quantum leg '+leg.startName+' → '+leg.endName+'. Set up when '+reference.body.name+' reads approximately '+km(reference.distance)+' km to its centre. Then check alignment using coordinates or the three marker ranges below. This creates a map plan, not an in-game waypoint.';
     $('#snare-coordinates').textContent=plan.system.toUpperCase()+' · metres\nX '+plan.position[0].toFixed(3)+'\nY '+plan.position[1].toFixed(3)+'\nZ '+plan.position[2].toFixed(3);
     $('#snare-references').replaceChildren();
     try{snareReferences=referenceMarkers(bodies,plan);}catch(error){snareReferences=[];$('#snare-references').append(el('p',error.message,'hint'));}
@@ -683,7 +689,7 @@ function setupSnarePlanner(){
     <label for="snare-min-travel">MINIMUM QT TRAVEL BEFORE CATCH (km)</label><input id="snare-min-travel" type="number" min="0" step="any" value="10000" inputmode="decimal" required>
     <label for="snare-end-buffer">MINIMUM DISTANCE BEFORE LEG END (km)</label><input id="snare-end-buffer" type="number" min="0" step="any" value="100" inputmode="decimal" required></details>
     <p id="snare-error" class="error" role="alert"></p><button id="snare-calculate" class="primary full">Calculate snare position</button></form>
-    <section id="snare-results" hidden><h3>Suggested setup point</h3><dl id="snare-stats" class="profile-stats"></dl><p id="snare-instructions"></p><button id="snare-focus" class="primary full" type="button">Show snare on map</button>
+    <section id="snare-results" hidden><h3>Suggested setup point</h3><div class="snare-reference"><small id="snare-reference-name"></small><strong id="snare-reference-distance"></strong><p id="snare-reference-window"></p><p id="snare-reference-note" class="hint"></p></div><dl id="snare-stats" class="profile-stats"></dl><p id="snare-instructions"></p><button id="snare-focus" class="primary full" type="button">Show snare on map</button>
     <h3>Check your position</h3><p>Use distances to the named marker centres, in kilometres. Leave measurements blank until you read them in game. Three ranges can produce two mirrored positions; both are reported.</p>
     <form id="snare-check-form" novalidate><div id="snare-references"></div><label for="snare-position">OR YOUR SAME-SYSTEM X, Y, Z (metres)</label><textarea id="snare-position" rows="2" maxlength="200" placeholder="X, Y, Z — optional coordinate alternative"></textarea><p class="hint">Coordinates take precedence over range measurements. Keep the same system and world reference frame as the plan. Prefer coordinates for narrow corridors: distant-marker range rounding can create large position errors.</p><button id="snare-verify" class="full">Check my position</button></form><div id="snare-check-result" role="status" aria-live="polite"></div><details><summary>Setup coordinates (metres)</summary><pre id="snare-coordinates"></pre></details></section>
     <details><summary>How this estimate works &amp; sources</summary><p>The corridor radius interpolates linearly between your departure and arrival spread. The planner keeps that corridor inside the snare with your margin, excludes local flight and jump tunnels, removes body-clearance intervals, then selects the midpoint of the widest remaining interval.</p><p>Body clearance uses the greater of four body radii, extracted obstruction radius or arrival radius, plus snare radius and margin. This is a heuristic, not a measured physics-grid or armistice boundary. Rotating cities/stations, live departure geometry, server state and patch-specific minimum snare travel can invalidate the estimate. The 10,000 km minimum is an editable community planning assumption.</p><p>Green-zone check range in the installed device: <span id="snare-green-zone"></span>. Armistice-zone volumes are not mapped; this tool cannot establish whether activation is permitted at a point. A snare also catches unrelated passing traffic.</p><p>Device values come from the installed Reynie DataCore record. <a href="https://robertsspaceindustries.com/en/comm-link/engineering/17270-Q-A-RSI-Mantis" target="_blank" rel="noopener noreferrer">RSI Mantis Q&amp;A</a> · <a href="https://snareplan.dolus.eu/" target="_blank" rel="noopener noreferrer">SnarePlan operator reference</a>. Geometry is independently implemented; no live ship tracking or catch probability is provided.</p></details>`;
