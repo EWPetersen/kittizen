@@ -6,13 +6,21 @@ import {MapModels} from './models.js';
 import {StarSurfaces,stellarRadius,stellarFocusSpan,drawStar,drawOrbitalLight,starColor} from './stars.js';
 // Stable candidate order and remembered anchor choices reduce label swapping while orbiting.
 export function labelPriority(body,selected=false) {
-  return body.kind==='planet'||body.mapImportance==='primary'?0:body.kind==='star'?1:body.kind==='moon'?2:selected?3:body.kind==='gateway'?4:body.kind==='om'?5:6;
+  return body.kind==='planet'||body.kind==='body'?0:body.kind==='gateway'?1:body.kind==='star'?2:body.mapImportance==='primary'?3:body.kind==='moon'?4:selected?5:body.kind==='lagrange'?6:body.kind==='om'?7:8;
 }
-// Detail belongs to the current scale, rather than to a particular system.
+// Stanton's cities/orbital hubs belong to their planet view. Pyro/Nyx's
+// sparse primary hubs also serve as system-level navigation landmarks.
+export function prominentLocation(body,parent,span) {
+  return ['planet','star','body','gateway'].includes(body.kind)||body.mapImportance==='primary'&&
+    (body.system!=='stanton'||parent&&span<=parent.radius*25);
+}
 export function detailSpan(body,container) {
-  if(body.mapImportance==='primary'||['planet','star','body','gateway'].includes(body.kind))return Infinity;
+  if(['planet','star','body','gateway','lagrange'].includes(body.kind))return Infinity;
+  if(body.mapImportance==='primary'){
+    if(body.system!=='stanton')return Infinity;
+    if(container?.radius>0)return container.radius*25;
+  }
   if(body.kind==='moon')return 3e9;
-  if(body.kind==='lagrange')return 1e10;
   if(container?.kind==='lagrange')return 3e10;
   return 3e9;
 }
@@ -40,7 +48,7 @@ export function layoutLabels(candidates,width,height,previous=new Map(),obstacle
   const placed=[],anchors=new Map();
   const overlaps=(a,b)=>a.x<b.x+b.w+5&&a.x+a.w+5>b.x&&a.y<b.y+b.h+4&&a.y+a.h+4>b.y;
   const primaryCount=candidates.filter(c=>c.major).length;
-  const budget=Math.max(width<500?8:14,Math.min(width<500?14:24,primaryCount)),detailBudget=width<500?3:6;let detailCount=0;
+  const budget=Math.max(width<500?8:14,Math.min(width<500?16:24,primaryCount+(width<500?2:4))),detailBudget=width<500?3:6;let detailCount=0;
   for(const item of [...candidates].sort((a,b)=>a.priority-b.priority||Number(!!b.selected)-Number(!!a.selected)||(a.major&&b.major?(b.body?.radius||0)-(a.body?.radius||0):0)||Number(previous.has(b.id))-Number(previous.has(a.id))||a.id.localeCompare(b.id))){
     const detail=!item.major&&!item.selected&&!item.important;
     if(detail&&detailCount>=detailBudget)continue;
@@ -48,7 +56,7 @@ export function layoutLabels(candidates,width,height,previous=new Map(),obstacle
     if(offscreen&&(!item.major||item.x+item.r<0||item.x-item.r>width||item.y+item.r<0||item.y-item.r>height))continue;
     const w=Math.min(item.width+14,width-16),h=item.major?23:20,gap=(item.major?Math.min(item.r,Math.min(width,height)*.4):Math.max(item.r,item.selected?20:14))+10;
     const positions=[[gap,-h/2],[-w-gap,-h/2],[-w/2,-gap-h],[-w/2,gap],[gap,-h-18],[-w-gap,-h-18],[gap,18],[-w-gap,18]];
-    if(item.major)for(const extra of [36,72])positions.push([gap+extra,-h/2],[-w-gap-extra,-h/2],[-w/2,gap+extra],[-w/2,-gap-h-extra]);
+    if(item.major)for(const extra of [36,72,108])positions.push([gap+extra,-h/2],[-w-gap-extra,-h/2],[-w/2,gap+extra],[-w/2,-gap-h-extra],[gap+extra,gap+extra],[-w-gap-extra,gap+extra],[gap+extra,-gap-h-extra],[-w-gap-extra,-gap-h-extra]);
     const order=[previous.get(item.id),...positions.map((_,i)=>i)].filter((n,i,a)=>n!==undefined&&n<positions.length&&a.indexOf(n)===i);
     for(const index of order){
       const [dx,dy]=positions[index];const box={x:Math.max(8,Math.min(width-w-8,item.x+dx)),y:Math.max(8,Math.min(height-h-8,item.y+dy)),w,h,item};
@@ -250,7 +258,7 @@ export class StarMap {
       return;
     }
     this.center = [0, 0, 0];
-    const major = this.bodies.filter(b => b.system === this.system && ['planet', 'gateway', 'body'].includes(b.kind));
+    const major = this.bodies.filter(b => b.system === this.system && (['planet', 'gateway', 'body'].includes(b.kind)||b.system!=='stanton'&&b.mapImportance==='primary'));
     this.systemSpan = major.length ? Math.max(...major.map(b => Math.hypot(...b.position))) * 2.6 : 1.2e11;
     this.span = this.systemSpan;
     this.yaw = -.35;
@@ -277,6 +285,14 @@ export class StarMap {
       if(length>0){this.yaw = Math.atan2(normal[0], normal[1]);
       this.pitch = Math.asin(Math.max(-1,Math.min(1,normal[2] / length)));}
     }
+    // Enter a populated planet on its landing-zone hemisphere, so its local
+    // hubs are useful immediately rather than hidden on the back of the globe.
+    if(b.kind==='planet'){
+      const hub=this.bodies.find(p=>p.parent===b.id&&p.kind==='poi'&&p.mapImportance==='primary');
+      if(hub){const normal=hub.position.map((v,i)=>v-b.position[i]),length=Math.hypot(...normal);
+        if(length>0){this.yaw=Math.atan2(normal[0],normal[1]);this.pitch=Math.asin(Math.max(-1,Math.min(1,normal[2]/length)));}
+      }
+    }
     this.selected = b.id;
     const target=this.camera();
     if(b.kind==='star')target.span=stellarFocusSpan(this.bodies);
@@ -284,8 +300,11 @@ export class StarMap {
       target.span=Math.max(2e4,parent ? parent.radius*4 : 2e6);
       target.pitch=Math.max(-Math.PI/2+.01,Math.min(Math.PI/2-.01,target.pitch-.55));
     }
+    if(parent&&b.kind!=='om'&&!b.radius&&(!b.model||b.modelRole==='symbol')){
+      target.center=[...b.position];target.span=Math.max(20000,Math.min(2e6,parent.radius*.08));
+    }
     if(b.model&&b.modelRole!=='symbol'){
-      target.center=[...b.position];target.span=Math.max(1000,(b.modelSize||1000)*1.5);
+      target.center=[...b.position];target.span=Math.max(500,(b.modelSize||1000)*.75);
       if(parent){
         // Look along the parent body's limb with the station in the foreground.
         const distance=Math.hypot(...b.position.map((v,i)=>v-parent.position[i]));
@@ -590,7 +609,8 @@ export class StarMap {
     } else if (this.route) line(this.route.map(b => b.position), '#a9dcff', 2, [7, 5]);
     const routeNames=new Set(this.routePlan?.legs.filter(l=>l.system===this.system).flatMap(l=>[l.startName,l.endName])||[]);
     const important=b=>b.id===this.selected||this.route?.some(p=>p.id===b.id)||routeNames.has(b.name);
-    const priority = b => labelPriority(b,important(b));
+    const prominent=b=>prominentLocation(b,this.surfaceParent(b),this.span);
+    const priority = b => labelPriority(prominent(b)?b:{...b,mapImportance:'local'},important(b));
     const layer=b=>b.radius>0||b.kind==='star'?0:b.id===this.selected?2:1;
     const sorted = [...visibleBodies].sort((a,b)=>layer(a)-layer(b)||priority(a)-priority(b)||Number(this.markerVisibility.has(b.id))-Number(this.markerVisibility.has(a.id))||a.id.localeCompare(b.id));
     const occupied=[],markers=new Set();
@@ -598,9 +618,11 @@ export class StarMap {
       let [x, y] = this.project(b.position);
       const bound = Math.max(30, (b.kind==='star'?stellarRadius(b)*3.2:b.radius||0) * this.scale);
       if (x < -bound || x > this.w + bound || y < -bound || y > this.h + bound) continue;
-      if (b.hidden) continue;
+      // The game hides occupied Lagrange anchors in favour of their stations.
+      // At system scale use the short anchor label, then reveal the station locally.
+      if (b.hidden && !(b.kind==='lagrange'&&this.span>3e10)) continue;
       if (b.category === 'auxiliary' && this.selected !== b.id) continue;
-      let major = b.mapImportance==='primary'||['planet', 'star', 'gateway', 'body'].includes(b.kind);
+      const major = prominent(b);
       const pinned=important(b),selected=this.selected===b.id;
       const parent = this.surfaceParent(b);
       if (!pinned&&!major&&parent && this.span > parent.radius * 25 && b.kind !== 'moon') continue;
@@ -614,11 +636,11 @@ export class StarMap {
       let color = b.kind === 'star' ? '#e7ce90' : b.kind === 'gateway' ? '#d9bf88' : b.kind === 'planet' ? '#86c8d0' : '#6b9ca8';
       const detailedModel=b.modelRole!=='symbol'&&this.span<4e8&&(!parent||this.span<parent.radius*12);
       // Share one fixed silhouette per game mesh until a close-up needs camera rotation.
-      const model=b.model?this.mapModels.get(b.modelRole==='symbol'?{...b,rotation:[1,0,0,0]}:b,detailedModel?this.yaw:0,detailedModel?this.pitch:-.6,detailedModel&&(selected||(b.modelSize||1000)*this.scale>160)?(this.pointers.size?256:512):160):null;
+      const model=b.model?this.mapModels.get(b.modelRole==='symbol'?{...b,rotation:[1,0,0,0]}:b,detailedModel?this.yaw:0,detailedModel?this.pitch:-.6,detailedModel&&(selected||(b.modelSize||1000)*this.scale>160)?(this.pointers.size?256:Math.min(this.w,this.h)>600?1024:512):160):null;
       if(b.kind==='star'){
         drawStar(c,this.starSurfaces,b,x,y,r);
       }else if(model){
-        r=detailedModel?Math.max(14,Math.min(Math.min(this.w,this.h)*.65,(b.modelSize||1000)*this.scale)):pinned||b.mapImportance==='primary'?12:9;
+        r=detailedModel?Math.max(14,Math.min(Math.min(this.w,this.h)*.44/(model.meshExtent||model.meshRadius||.5),(b.modelSize||1000)*this.scale)):selected&&parent&&this.span<parent.radius?28:pinned||major?12:9;
         c.drawImage(model,x-r,y-r,r*2,r*2);
       } else if (b.radius > 0 || b.kind === 'star') {
         const viewport=r>Math.max(this.w,this.h)*2?{width:this.w,height:this.h,x,y,radius:r}:null;
@@ -668,17 +690,17 @@ export class StarMap {
         r: Math.max(18, displayR + 6),
         body: b
       });
-      const prominent=major||b.kind==='moon';
+      const prominentLabel=major||b.kind==='moon';
       const threshold=b.kind==='om'?35:100;
       const pixels=parent?parent.radius*this.scale:Infinity;
-      const allowed=prominent||pinned||pixels>(this.labelVisibility.has(b.id)?threshold*.82:threshold);
+      const allowed=prominentLabel||pinned||b.kind==='lagrange'||pixels>(this.labelVisibility.has(b.id)?threshold*.82:threshold);
       if(!allowed){this.labelVisibility.delete(b.id);continue;}
       this.labelVisibility.add(b.id);
-      c.font = (prominent ? '12' : '10') + 'px Arial';
+      c.font = (prominentLabel ? '12' : '10') + 'px Arial';
       const fullText=b.name.replace(/^People's Service Station /,"People's ");let text=fullText;const limit=selected?190:145;
       while(text.length>4&&c.measureText(text).width>limit)text=text.slice(0,-2);
       if(text!==fullText)text+='…';
-      labels.push({id:b.id,x,y,r:displayR,text,width:c.measureText(text).width,body:b,selected,important:pinned,major:prominent,priority:labelPriority(b,pinned)});
+      labels.push({id:b.id,x,y,r:displayR,text,width:c.measureText(text).width,body:b,selected,important:pinned,major:prominentLabel,priority:priority(b)});
     }
     this.markerVisibility=markers;
     this.drawHeatmap();

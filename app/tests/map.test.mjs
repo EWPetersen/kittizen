@@ -62,10 +62,10 @@ test('focus is gently timed and selected planets have no rectangular outline',()
  try{f.map.selected=f.bodies[0].id;f.map.focus(f.bodies[0]);const move=f.map.transition;assert.ok(move.duration>=850&&move.duration<=1750);f.map.advanceCamera(move.time+move.duration);f.map.draw();assert.equal(boxes,0);assert.equal(f.map.transition,null);}finally{delete globalThis.matchMedia;}
 });
 
-test('primary station labels have planet priority and can share an anchor beside map chrome',()=>{
+test('primary station labels follow planets and can share an anchor beside map chrome',()=>{
  const planet={id:'planet',x:242,y:173,r:13,text:'Terminus',width:48,major:true,priority:0,body:{radius:1000000}};
  const hub={id:'hub',x:242,y:173,r:12,text:'Ruin Station',width:72,major:true,priority:labelPriority({kind:'station',mapImportance:'primary'})};
- assert.equal(hub.priority,planet.priority);
+ assert.ok(hub.priority>planet.priority);
  const layout=layoutLabels([hub,planet],690,642,new Map(),[{x:28,y:27,w:395,h:138}]);
  assert.ok(layout.placed.some(b=>b.item.id==='planet'));assert.ok(layout.placed.some(b=>b.item.id==='hub'));
 });

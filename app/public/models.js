@@ -21,20 +21,20 @@ export class MapModels {
       this.load(body.model).then(mesh=>{if(!validMesh(mesh))throw Error('Invalid map model');this.sources.set(body.model,mesh);this.invalidate();}).catch(()=>{this.failures.add(body.model);this.invalidate();});
     }
     const mesh=this.sources.get(body.model);if(!mesh)return null;
-    size=Math.max(64,Math.min(512,Math.round(size)));
+    size=Math.max(64,Math.min(1024,Math.round(size)));
     const key=[body.model,...(body.rotation||[1,0,0,0]),yaw.toFixed(2),pitch.toFixed(2),size].join(':');
     if(this.cache.has(key))return this.cache.get(key);
     const canvas=document.createElement('canvas');canvas.width=canvas.height=size;const c=canvas.getContext('2d');
     c.translate(size/2,size/2);c.scale(size*.4375,size*.4375);c.lineWidth=.004;
-    let extent=0;
+    let extent=0,axisExtent=0;
     for(const face of modelFaces(mesh,body.rotation,yaw,pitch)){
-      for(const point of face.points)extent=Math.max(extent,Math.hypot(point[0],point[1]));
+      for(const point of face.points){extent=Math.max(extent,Math.hypot(point[0],point[1]));axisExtent=Math.max(axisExtent,Math.abs(point[0]),Math.abs(point[1]));}
       const [a,b,d]=face.points;const area=Math.abs((b[0]-a[0])*(d[1]-a[1])-(b[1]-a[1])*(d[0]-a[0]));
       if(area<1e-8)continue;
       const light=Math.round(115+Math.min(1,area*80)*65+Math.max(0,face.depth)*35);
       c.fillStyle=`rgb(${Math.round(light*.64)},${Math.round(light*.89)},${light})`;c.strokeStyle='#b9e6ef65';
       c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.lineTo(d[0],d[1]);c.closePath();c.fill();c.stroke();
     }
-    canvas.meshRadius=extent*.875;this.cache.set(key,canvas);if(this.cache.size>16)this.cache.delete(this.cache.keys().next().value);return canvas;
+    canvas.meshRadius=extent*.875;canvas.meshExtent=axisExtent*.875;this.cache.set(key,canvas);if(this.cache.size>8)this.cache.delete(this.cache.keys().next().value);return canvas;
   }
 }

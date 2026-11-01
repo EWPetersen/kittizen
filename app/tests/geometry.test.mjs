@@ -71,7 +71,51 @@ test('system overviews keep celestial bodies and gates ahead of station detail',
   map.setSystem(system);map.draw();const markers=map.hits.filter(h=>h.body&&!h.box);
   assert.ok(markers.some(h=>h.body.kind==='planet'));
   if(system==='pyro')assert.ok(markers.some(h=>h.body.name==='Pyro IV'),'Pyro IV remains a planet even though it orbits Pyro V');
-  assert.ok(markers.every(h=>h.body.mapImportance==='primary'||['planet','star','gateway','body'].includes(h.body.kind)),system);
+  assert.ok(markers.every(h=>h.body.mapImportance==='primary'||['planet','star','gateway','body','lagrange'].includes(h.body.kind)),system);
+ }
+});
+
+test('Stanton overview labels reserve space for planets and gates, then Lagrange points',()=>{
+ const {map}=fixture();map.draw();const labels=map.hits.filter(h=>h.box).map(h=>h.body);
+ for(const body of catalog.bodies.filter(b=>b.system==='stanton'&&['planet','gateway'].includes(b.kind)))assert.ok(labels.some(b=>b.id===body.id),body.name);
+ assert.ok(labels.some(b=>b.kind==='lagrange'),'free space contains Lagrange labels: '+map.hits.filter(h=>!h.box).map(h=>h.body.name).join(', '));
+ assert.ok(!labels.some(b=>b.name==='Orison'||b.name==='Seraphim Station'),'planet-local hubs wait for a local view');
+ const order=map.hits.filter(h=>h.box).map(h=>h.box.item.priority);assert.deepEqual(order,[...order].sort((a,b)=>a-b));
+});
+
+test('Crusader reveals its landing zone and orbital station before other POIs',()=>{
+ const {map}=fixture(),crusader=catalog.bodies.find(b=>b.name==='Crusader'),orison=catalog.bodies.find(b=>b.name==='Orison');
+ map.focus(orison);map.span=crusader.radius*12;map.draw();
+ const labels=map.hits.filter(h=>h.box).map(h=>h.box.item);
+ for(const name of ['Crusader','Orison','Seraphim Station'])assert.ok(labels.some(b=>b.body.name===name),name);
+ const hubs=labels.filter(b=>['Orison','Seraphim Station'].includes(b.body.name));
+ for(const poi of labels.filter(b=>b.body.kind==='poi'&&b.body.mapImportance!=='primary'))assert.ok(hubs.every(h=>h.priority<poi.priority));
+});
+
+test('entering Crusader initially faces Orison and keeps Seraphim labelled',()=>{
+ const {map}=fixture(),crusader=catalog.bodies.find(b=>b.name==='Crusader');map.focus(crusader);map.draw();
+ const labels=map.hits.filter(h=>h.box).map(h=>h.body.name);
+ for(const name of ['Crusader','Orison','Seraphim Station'])assert.ok(labels.includes(name),name);
+});
+
+test('Pyro and Nyx place primary hubs after planets and gates and before secondary labels',()=>{
+ const {map}=fixture();for(const system of ['pyro','nyx']){
+  map.setSystem(system);map.draw();const labels=map.hits.filter(h=>h.box).map(h=>h.box.item);
+  for(const hub of catalog.bodies.filter(b=>b.system===system&&b.mapImportance==='primary'))assert.ok(labels.some(b=>b.id===hub.id),hub.name);
+  const main=labels.filter(b=>b.body.kind==='planet'||b.body.kind==='gateway');const hubs=labels.filter(b=>b.body.mapImportance==='primary');
+  assert.ok(main.every(a=>hubs.every(b=>a.priority<b.priority)));
+  assert.ok(labels.filter(b=>b.body.kind==='lagrange').every(a=>hubs.every(b=>b.priority<a.priority)));
+ }
+});
+
+test('phone system framing includes distant Nyx service stations and keeps core labels',()=>{
+ const {map}=fixture();map.canvas.getBoundingClientRect=()=>({width:390,height:680,left:0,top:0});
+ for(const system of ['stanton','pyro','nyx']){
+  map.setSystem(system);map.draw();const labels=map.hits.filter(h=>h.box).map(h=>h.body.id);
+  for(const body of catalog.bodies.filter(b=>b.system===system&&(['planet','gateway'].includes(b.kind)||system!=='stanton'&&b.mapImportance==='primary'))){
+   const [x,y]=map.project(body.position);assert.ok(x>=0&&x<=map.w&&y>=0&&y<=map.h,body.name+' in phone frame');
+   assert.ok(labels.includes(body.id),body.name+' phone label');
+  }
  }
 });
 
@@ -88,7 +132,7 @@ test('a searched station remains visible at overview scale and local detail is s
 test('a game navigation symbol does not turn a surface POI into a station close-up',()=>{
  const {map}=fixture();const poi=catalog.bodies.find(b=>b.modelRole==='symbol'&&map.surfaceParent(b));
  assert.ok(poi);const parent=map.surfaceParent(poi);map.setSystem(poi.system);map.focus(poi);
- assert.equal(map.span,parent.radius*2.8);assert.deepEqual(map.center,parent.position);
+ assert.equal(map.span,Math.max(20000,Math.min(2e6,parent.radius*.08)));assert.deepEqual(map.center,poi.position);
 });
 
 test('all extracted stars focus to a close-up while retaining their game material',()=>{
@@ -117,12 +161,26 @@ test('orbital station focus retains its planet and manual close-ups never hide i
  const {map}=fixture();map.mapModels.get=()=>({});for(const name of ['Seraphim Station','Port Tressler','Everus Harbor','Baijini Point']){
   const station=catalog.bodies.find(b=>b.name===name),parent=map.surfaceParent(station);
   map.setSystem(station.system);map.focus(station);map.draw();
-  assert.equal(map.span,Math.max(1000,station.modelSize*1.5),name);assert.deepEqual(map.center,station.position);assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' parent');
+  assert.equal(map.span,Math.max(500,station.modelSize*.75),name);assert.deepEqual(map.center,station.position);assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' parent');
   assert.ok(map.hits.find(h=>h.body?.id===station.id&&!h.box).r>Math.min(map.w,map.h)*.3,name+' large foreground model');
   assert.ok(map.hits.some(h=>h.body?.id===station.id&&!h.box),name+' station');
   assert.ok(!map.occluded(station.position,parent),name+' near side');
   map.center=[...station.position];map.span=20000;map.draw();
   assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' close-up parent');
+ }
+});
+
+test('station silhouettes fill most of desktop and phone frames without clipping',()=>{
+ const {map}=fixture();
+ for(const [width,height] of [[1280,642],[390,680]])for(const name of ['Seraphim Station','Port Tressler','Everus Harbor','Baijini Point']){
+  map.canvas.getBoundingClientRect=()=>({width,height,left:0,top:0});const station=catalog.bodies.find(b=>b.name===name);
+  map.setSystem(station.system);map.focus(station);
+  const mesh=JSON.parse(fs.readFileSync(new URL('../public/'+station.model,import.meta.url),'utf8'));
+  const points=modelFaces(mesh,station.rotation,map.yaw,map.pitch).flatMap(f=>f.points);
+  const radius=Math.max(...points.map(p=>Math.hypot(p[0],p[1])))*.875,extent=Math.max(...points.flatMap(p=>[Math.abs(p[0]),Math.abs(p[1])]))*.875;
+  map.mapModels.get=()=>({meshRadius:radius,meshExtent:extent});map.draw();
+  const hit=map.hits.find(h=>!h.box&&h.body?.id===station.id),spriteR=(hit.r-6)/radius,fill=spriteR*extent*2/Math.min(width,height);
+  assert.ok(fill>=.8&&fill<=.89,name+' framed at '+fill);
  }
 });
 
