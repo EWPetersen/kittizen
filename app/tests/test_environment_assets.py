@@ -1,9 +1,17 @@
 import sys,unittest,math
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
-from environment_assets import placements,ring_properties,settlement_details
+from environment_assets import placements,ring_properties,settlement_details,local_ring
 
 class EnvironmentAssetTests(unittest.TestCase):
+    def test_yela_ring_inherits_body_transform_and_rejects_ambiguous_data(self):
+        body=dict(id='yela',system='stanton',position=[10,20,30],rotation=[1,0,0,0],source='native.socpak')
+        entity='<Entity Name="Yela_AsteroidRing" Pos="2,3,4"><AsteroidFieldComponent innerRadiusKm="482" outerRadiusKm="782" depthKm="20"/></Entity>'
+        ring=local_ring('<Entities>'+entity+'</Entities>',body)
+        self.assertEqual(ring['center'],[12,23,34]);self.assertEqual(ring['parent'],'yela')
+        self.assertEqual((ring['innerRadius'],ring['outerRadius'],ring['depth']),(482000,782000,20000))
+        for xml in ['<Entities/>','<Entities>'+entity*2+'</Entities>','<Entities>'+entity.replace('2,3,4','nan,3,4')+'</Entities>']:
+            with self.assertRaises(ValueError):local_ring(xml,body)
     def test_ring_dimensions_are_read_in_metres_without_inventing_widths(self):
         p=ring_properties('<Entities><AsteroidFieldComponent innerRadiusKm="19597600" outerRadiusKm="21392800" depthKm="10000"/></Entities>')
         self.assertEqual(p,dict(innerRadius=19597600000,outerRadius=21392800000,depth=10000000,radialWidthKnown=True))

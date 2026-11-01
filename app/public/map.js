@@ -337,6 +337,8 @@ export class StarMap {
       }
     }
     if(!b.radius&&!['star','gateway','om'].includes(b.kind))target.span*=LOCATION_FOCUS_PULLBACK;
+    // Orbital facilities use a consistent 30 km frame; wheel zoom stays free.
+    if(b.kind==='station'&&b.modelRole!=='surface')target.span=30000;
     Object.assign(this,start);this.flyTo(target);
   }
   focusReport(report) {
@@ -766,6 +768,7 @@ export class StarMap {
       if(text!==fullText)text+='…';
       labels.push({id:b.id,x,y,r:displayR,text,width:c.measureText(text).width,body:b,selected,important:pinned,major:prominentLabel,priority:priority(b)});
     }
+    labels.push(...drawBelts(c,this.belts,this.system,p=>this.project(p),this.center,this.span,this.w,this.h,{local:true,occluded:(p,belt)=>{const parent=this.byId.get(belt.parent);return parent?this.occluded(p,parent):false;}}));
     this.markerVisibility=markers;
     if(portalMoving)this.portalTimer=setTimeout(()=>{this.portalTimer=null;this.invalidate();},50);
     this.drawHeatmap();

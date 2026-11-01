@@ -11,16 +11,19 @@ export function beltParticles(belt,count=1100){
   }
   cache.set(belt,points);return points;
 }
-export function drawBelts(c,belts,system,project,center,span,width,height){
+export function drawBelts(c,belts,system,project,center,span,width,height,{local=false,occluded=()=>false}={}){
   const labels=[];
   for(const belt of belts||[]){
     if(belt.system!==system)continue;
-    const radius=Math.hypot(center[0]-belt.center[0],center[1]-belt.center[1]);
+    if(!!belt.parent!==local)continue;
+    if(belt.parent&&belt.outerRadius*Math.min(width,height)/span<18)continue;
+    const delta=inverseRotate(belt.rotation||[1,0,0,0],center.map((v,i)=>v-belt.center[i])),radius=Math.hypot(delta[0],delta[1]);
     if(span<1e9&&(radius<belt.innerRadius-span*2||radius>belt.outerRadius+span*2))continue;
-    const points=beltParticles(belt);c.save();
+    const points=beltParticles(belt,belt.parent?1800:1100);c.save();
     c.fillStyle=belt.radialWidthKnown?'#91aaa94a':'#90b6c44a';
     const stride=belt.radialWidthKnown?1:Math.max(1,Math.ceil(points.length/(Math.PI*2*belt.outerRadius*Math.min(width,height)/span*.45)));
     for(let i=0;i<points.length;i+=stride){
+      if(belt.parent&&occluded(points[i],belt))continue;
       const [x,y]=project(points[i]);if(x<-4||x>width+4||y<-4||y>height+4)continue;
       const size=i%13===0?1.7:.75;
       // Unknown physical Nyx ring width stays a centreline. Pixel scatter is

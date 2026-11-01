@@ -278,6 +278,9 @@ function mapLocationActions(b){
   root.hidden=false;root.replaceChildren();
   for(const [id,label] of [['origin','Depart here'],['destination','Route here']]){const button=el('button',label);button.id='map-'+id;button.onclick=()=>chooseRoutePoint(id,b);root.append(button);}
   root.append(mapResetButton());
+  if(map.belts?.some(belt=>belt.parent===b.id)){
+    const view=el('button','Ring & orbits');view.onclick=()=>{map.focusSystem(b);selectBody(b,false);};root.append(view);
+  }
 }
 function selectBody(b, focus = true) {
   if (map.system !== b.system && b.system) map.setSystem(b.system);
@@ -753,8 +756,10 @@ function renderActiveShards(data,state='ready'){
   $('#active-shard-hint').textContent=state==='loading'?'Checking connected viewers…':state==='error'?'Live list unavailable · retrying automatically.':rows.length?'Kittizen viewers active in the last 45 seconds. Select a shard to open it.':'No active shards yet. Choose a region and shard to appear here.';
   for(const row of rows){
     const button=el('button',undefined,'active-shard');button.type='button';const system=map.systems.find(s=>s.id===row.system);
-    button.append(el('strong',row.shard),el('span',row.count+' viewer'+(row.count===1?'':'s')));button.title='Open '+row.shard+' in '+(system?.name||row.system);
-    button.setAttribute('aria-label','Open '+row.shard+' · '+row.count+' viewer'+(row.count===1?'':'s'));button.onclick=()=>joinShard(row.shard,row.system);list.append(button);
+    const stats=el('small',undefined,'active-shard-stats'),reports=Number(row.reports)||0,reportText=reports+' active report'+(reports===1?'':'s');
+    stats.append(el('span',row.count+' viewer'+(row.count===1?'':'s')),el('span',reportText,'active-shard-reports'+(reports?' has-reports':'')));
+    button.append(el('strong',row.shard),stats);button.title='Open '+row.shard+' in '+(system?.name||row.system);
+    button.setAttribute('aria-label','Open '+row.shard+' · '+row.count+' viewer'+(row.count===1?'':'s')+' · '+reportText);button.onclick=()=>joinShard(row.shard,row.system);list.append(button);
   }
   if(data?.activeShardCount>rows.length)list.append(el('small','Showing the '+rows.length+' most active shards.','hint'));
   map.invalidate();

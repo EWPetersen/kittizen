@@ -36,6 +36,20 @@ def decoded_entities(archive,source,suffix,output,tool):
     subprocess.run([str(tool),'cryxml','convert',str(binary),str(decoded)],check=True,capture_output=True,timeout=30)
     return decoded.read_bytes()
 
+def local_ring(xml,body):
+    entities=ET.fromstring(xml).findall(".//Entity[@Name='Yela_AsteroidRing']")
+    if len(entities)!=1:raise ValueError('Missing or ambiguous Yela asteroid ring')
+    entity=entities[0]
+    def vector(value,size):
+        values=tuple(float(x) for x in value.split(','))
+        if len(values)!=size or not all(math.isfinite(x) for x in values):raise ValueError('Invalid ring transform')
+        return values
+    position=vector(entity.get('Pos','0,0,0'),3)
+    rotation=vector(entity.get('Rotate',entity.get('Rotation','1,0,0,0')),4)
+    if abs(sum(x*x for x in rotation)-1)>.001:raise ValueError('Invalid ring rotation')
+    center=[a+b for a,b in zip(body['position'],rotate(body['rotation'],position))]
+    return dict(id='stanton:yela-ring',name='Yela asteroid ring',system=body['system'],parent=body['id'],center=center,rotation=mul(body['rotation'],rotation),source=body['source'],**ring_properties(ET.tostring(entity)))
+
 def settlement_details(mesh):
     """Small authored dock silhouettes on the native rock; not a world reconstruction."""
     mesh['faceMaterials']=['rock']*len(mesh['triangles'])
@@ -72,6 +86,8 @@ def extract_environment(archive,catalog,root):
             if not math.isfinite(radius) or radius<=0 or not distances or max(abs(r-radius) for r in distances)>radius*.001:raise ValueError('Nyx belt radius no longer agrees with placed segments')
             dimensions=dict(innerRadius=radius,outerRadius=radius,depth=0,radialWidthKnown=False)
         belts.append(dict(id=system+':'+relative,name=name,system=system,center=placed[source]['position'],rotation=placed[source]['rotation'],source=source,**dimensions))
+    yela=next(b for b in catalog['bodies'] if b['name']=='Yela' and b['system']=='stanton')
+    belts.append(local_ring(decoded_entities(archive,yela['source'],'.soc',output,tool),yela))
     catalog['belts']=belts
     levski=next(b for b in catalog['bodies'] if b['name']=='Levski' and b['system']=='nyx')
     # Ensure this source component is still actually used by the installed Levski.

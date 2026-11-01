@@ -49,10 +49,22 @@ class ProfileAuthTests(unittest.TestCase):
         self.request('presence',{'system':'pyro','shard':'US-007'},other)
         self.request('presence',{'system':'nyx','shard':'EU-034'},third)
         data=self.request('presence',{'system':'universe','shard':'','includeShards':True},spectator)[1]
-        self.assertEqual(data['activeShardCount'],2);self.assertEqual(data['shards'],[dict(shard='US-007',count=2,system='pyro'),dict(shard='EU-034',count=1,system='nyx')])
-        self.assertTrue(all(set(row)=={'shard','count','system'} for row in data['shards']))
+        self.assertEqual(data['activeShardCount'],2);self.assertEqual(data['shards'],[dict(shard='US-007',count=2,system='pyro',reports=0),dict(shard='EU-034',count=1,system='nyx',reports=0)])
+        self.assertTrue(all(set(row)=={'shard','count','system','reports'} for row in data['shards']))
         self.request('presence',{'system':'pyro','shard':'US-007'},other)
         self.assertEqual(self.request('presence',{'system':'universe','shard':'','includeShards':True},spectator)[1]['shards'][0]['count'],2)
+    def test_shard_report_counts_exclude_expired_and_do_not_multiply_viewers(self):
+        now=time.time()
+        with server.connect() as db:
+            db.execute('INSERT INTO users VALUES(?,?,?,?,?)',('reporter','Reporter','','',now))
+            for viewer,shard,system in [('one','US-007','stanton'),('two','US-007','pyro'),('three','EU-034','nyx')]:
+                db.execute('INSERT INTO presence VALUES(?,?,?,?)',(viewer,shard,system,now))
+            for ident,shard,kind,age in [('a','US-007','Pirates',1),('b','US-007','Clear',2),('c','US-007','Pirates',server.TTL),('d','EU-034','Pirates',10),('e','AUS-091','Pirates',1)]:
+                db.execute('INSERT INTO reports(id,user,shard,kind,location,created) VALUES(?,?,?,?,?,?)',(ident,'reporter',shard,kind,'Yela',now-age))
+            rows,total=server.active_shards(db,now)
+        self.assertEqual(total,2)
+        self.assertEqual({r['shard']:r['reports'] for r in rows},{'US-007':2,'EU-034':1})
+        self.assertEqual(rows[0]['count'],2)
     def test_active_shards_expire_and_unselected_viewers_do_not_create_a_shard(self):
         self.request('presence',{'system':'stanton','shard':'AUS-009'})
         with server.connect() as db:db.execute('UPDATE presence SET seen=?',(time.time()-46,))

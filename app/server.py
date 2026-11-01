@@ -158,7 +158,13 @@ def active_shards(db,now):
         choices=sorted(((system,count) for system,count in entry.pop('systems').items() if system!='universe'),key=lambda pair:(-pair[1],pair[0]))
         entry['system']=choices[0][0] if choices else CATALOG['systems'][0]['id'];result.append(entry)
     result.sort(key=lambda entry:(-entry['count'],entry['shard']))
-    return result[:50],len(result)
+    visible=result[:50];report_counts={}
+    if visible:
+        placeholders=','.join('?' for _ in visible)
+        for row in db.execute('SELECT shard,COUNT(*) AS count FROM reports WHERE created>? AND shard IN ('+placeholders+') GROUP BY shard',(now-TTL,*[entry['shard'] for entry in visible])):
+            report_counts[row['shard']]=row['count']
+    for entry in visible:entry['reports']=report_counts.get(entry['shard'],0)
+    return visible,len(result)
 
 
 @lru_cache(maxsize=1)

@@ -3,10 +3,18 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {StarMap,layoutLabels,labelPriority,trackLabels} from '../public/map.js';
 import {portalRim,portalRadius,animatePortal} from '../public/portals.js';
-import {beltParticles} from '../public/belts.js';
+import {beltParticles,drawBelts} from '../public/belts.js';
 globalThis.ResizeObserver=class{observe(){}};
 let frames=[];globalThis.requestAnimationFrame=f=>frames.push(f);globalThis.devicePixelRatio=3;
 const scaleLabel={textContent:''};globalThis.document={createElement:()=>({getContext:()=>({putImageData(){}})}),querySelector:()=>scaleLabel};
+test('local asteroid rings stay absent at system scale and respect globe occlusion',()=>{
+ const ring={id:'local',name:'Ring',system:'stanton',parent:'yela',center:[0,0,0],rotation:[1,0,0,0],innerRadius:482000,outerRadius:782000,depth:20000,radialWidthKnown:true};
+ let dots=0;const c={save(){},restore(){},fillRect(){dots++;}},project=p=>[400+p[0]/4000,300+p[1]/4000];
+ drawBelts(c,[ring],'stanton',project,[0,0,0],2.5e6,800,600);assert.equal(dots,0);
+ drawBelts(c,[ring],'stanton',project,[0,0,0],1e11,800,600,{local:true});assert.equal(dots,0);
+ drawBelts(c,[ring],'stanton',project,[0,0,0],2.5e6,800,600,{local:true,occluded:()=>true});assert.equal(dots,0);
+ drawBelts(c,[ring],'stanton',project,[0,0,0],2.5e6,800,600,{local:true,occluded:p=>p[0]<0});assert.ok(dots>600&&dots<1200);
+});
 function fixture(){
  const events={};const context=new Proxy({measureText:t=>({width:t.length*6}),createRadialGradient:()=>({addColorStop(){}})}, {get:(o,p)=>p in o?o[p]:()=>{}});
  const canvas={width:0,height:0,getContext:()=>context,getBoundingClientRect:()=>({width:390,height:700,left:0,top:0}),addEventListener:(k,f)=>events[k]=f,setPointerCapture(){}};

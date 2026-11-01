@@ -227,13 +227,23 @@ test('orbital station focus retains its planet and manual close-ups never hide i
  const {map}=fixture();map.mapModels.get=()=>({});for(const name of ['Seraphim Station','Port Tressler','Everus Harbor','Baijini Point']){
   const station=catalog.bodies.find(b=>b.name===name),parent=map.surfaceParent(station);
   map.setSystem(station.system);map.focus(station);map.draw();
-  assert.equal(map.span,Math.max(600,station.modelSize*.95)*LOCATION_FOCUS_PULLBACK,name);assert.deepEqual(map.center,station.position);assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' parent');
-  assert.ok(map.hits.find(h=>h.body?.id===station.id&&!h.box).r>Math.min(map.w,map.h)*.05,name+' visible model with wider context');
+  assert.equal(map.span,30000,name);assert.deepEqual(map.center,station.position);assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' parent');
+  assert.ok(map.hits.find(h=>h.body?.id===station.id&&!h.box).r>=14,name+' selectable model with wider context');
   assert.ok(map.hits.some(h=>h.body?.id===station.id&&!h.box),name+' station');
   assert.ok(!map.occluded(station.position,parent),name+' near side');
   map.center=[...station.position];map.span=20000;map.draw();
   assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' close-up parent');
  }
+});
+
+test('Yela ring contains Grim HEX at game-derived bounds and remains locally framed',()=>{
+ const {map}=fixture(),ring=catalog.belts.find(b=>b.parent),yela=catalog.bodies.find(b=>b.name==='Yela'),grim=catalog.bodies.find(b=>b.name==='Grim HEX');
+ assert.equal(ring.parent,yela.id);assert.deepEqual(ring.center,yela.position);
+ assert.deepEqual([ring.innerRadius,ring.outerRadius,ring.depth],[482000,782000,20000]);
+ const radial=Math.hypot(grim.position[0]-ring.center[0],grim.position[1]-ring.center[1]);
+ assert.ok(radial>ring.innerRadius&&radial<ring.outerRadius);assert.ok(Math.abs(grim.position[2]-ring.center[2])<ring.depth/2);
+ map.belts=catalog.belts;map.setSystem('stanton');map.focusSystem(yela);map.draw();
+ assert.ok(map.span>ring.outerRadius*2);assert.ok(map.span<ring.outerRadius*5);
 });
 
 test('station focus leaves more surrounding context on desktop and phone without losing the model',()=>{
@@ -246,7 +256,7 @@ test('station focus leaves more surrounding context on desktop and phone without
   const radius=Math.max(...points.map(p=>Math.hypot(p[0],p[1])))*.875,extent=Math.max(...points.flatMap(p=>[Math.abs(p[0]),Math.abs(p[1])]))*.875;
   map.mapModels.get=()=>({meshRadius:radius,meshExtent:extent});map.draw();
   const hit=map.hits.find(h=>!h.box&&h.body?.id===station.id),spriteR=(hit.r-6)/radius,fill=spriteR*extent*2/Math.min(width,height);
-  assert.ok(fill>=.1&&fill<=.6,name+' widened framing at '+fill);
+  assert.equal(map.span,30000);assert.ok(fill>0&&fill<=.6,name+' widened framing at '+fill);
  }
 });
 
@@ -267,7 +277,7 @@ test('landing zones and gateways retain game references and Levski uses native a
 });
 
 test('belt catalogue uses current game radii and renders as background without changing jump targets',()=>{
- const belts=catalog.belts;assert.equal(belts.length,3);const a=belts.find(b=>b.name==='Aaron Halo');
+ const belts=catalog.belts;assert.equal(belts.length,4);const a=belts.find(b=>b.name==='Aaron Halo');
  assert.equal(a.innerRadius,19597600000);assert.equal(a.outerRadius,21392800000);assert.equal(a.depth,10000000);
  for(const [name,radius] of [['Keeger Belt',48000000000],['Glaciem Ring',15000001000]]){const b=belts.find(b=>b.name===name);assert.equal(b.innerRadius,radius);assert.equal(b.outerRadius,radius);assert.equal(b.radialWidthKnown,false);}
  const {map}=fixture();map.belts=belts;

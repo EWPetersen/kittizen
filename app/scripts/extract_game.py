@@ -11,7 +11,7 @@ from nav_metadata import navigation
 from p4k import P4K
 
 ENTRY = "data/objectcontainers/pu/system/stanton/stantonsystem.socpak"
-PIPELINE_VERSION = 14
+PIPELINE_VERSION = 15
 
 
 def fingerprint(game):
