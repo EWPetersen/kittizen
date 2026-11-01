@@ -3,6 +3,7 @@ import {
 } from './sphere.js';
 import {activityWeight,heatField,heatPixels} from './heatmap.js';
 import {MapModels} from './models.js';
+import {StarSurfaces,stellarRadius,drawStar,drawOrbitalLight,starColor} from './stars.js';
 // Stable candidate order and remembered anchor choices reduce label swapping while orbiting.
 export function labelPriority(body,selected=false) {
   return body.kind==='planet'?0:body.kind==='star'?1:body.kind==='moon'?2:selected?3:body.kind==='gateway'?4:body.kind==='om'?5:6;
@@ -61,6 +62,7 @@ export class StarMap {
     this.routePlan = null;
     this.globeTextures = new GlobeTextures(() => this.invalidate());
     this.mapModels = new MapModels(() => this.invalidate());
+    this.starSurfaces=new StarSurfaces();
     new ResizeObserver(() => this.invalidate()).observe(canvas);
     canvas.addEventListener('wheel', e => {
       e.preventDefault();
@@ -257,11 +259,12 @@ export class StarMap {
     }
     this.selected = b.id;
     const target=this.camera();
+    if(b.kind==='star')target.span=stellarRadius(b)*4;
     if(b.kind==='om'){
       target.span=Math.max(2e4,parent ? parent.radius*4 : 2e6);
       target.pitch=Math.max(-Math.PI/2+.01,Math.min(Math.PI/2-.01,target.pitch-.55));
     }
-    if(b.model){target.center=[...b.position];target.span=Math.max(2e4,(b.modelSize||1000)*8);}
+    if(b.model&&b.modelRole!=='symbol'){target.center=[...b.position];target.span=Math.max(2e4,(b.modelSize||1000)*8);}
     Object.assign(this,start);this.flyTo(target);
   }
   focusReport(report) {
@@ -431,13 +434,15 @@ export class StarMap {
       c.beginPath();
       c.ellipse(x, y, radius + 8, (radius + 8) * .65, -.12, 0, Math.PI * 2);
       c.fill();
+      const star=this.bodies.find(b=>b.system===s.id&&b.kind==='star');
+      drawOrbitalLight(c,star,x,y,radius,.65);
       {
         const weight=this.reports.filter(r=>(r.system||'stanton')===s.id).reduce((total,r)=>total+activityWeight(r),0);
         if(weight>0){const alpha=1-Math.exp(-weight*.6),gradient=c.createRadialGradient(x,y,0,x,y,radius+12);gradient.addColorStop(0,`rgba(255,95,30,${alpha*.8})`);gradient.addColorStop(1,'rgba(255,95,30,0)');c.fillStyle=gradient;c.fillRect(x-radius-12,y-radius-12,(radius+12)*2,(radius+12)*2);}
       }
       for (const body of planets) {
         const orbit = Math.hypot(...body.position) / extent * radius;
-        c.strokeStyle = '#7998a16e';
+        c.strokeStyle = starColor(star,.24);
         c.lineWidth = 1;
         c.beginPath();
         c.ellipse(x, y, orbit, orbit * .65, -.12, 0, Math.PI * 2);
@@ -451,10 +456,7 @@ export class StarMap {
         c.arc(bx, by, 2.5, 0, Math.PI * 2);
         c.fill();
       }
-      c.beginPath();
-      c.arc(x, y, 5, 0, Math.PI * 2);
-      c.fillStyle = '#e7d29c';
-      c.fill();
+      if(star)drawStar(c,this.starSurfaces,star,x,y,5);
       c.fillStyle = '#e2eeee';
       c.font = '17px Arial';
       c.fillText(s.name, x - 23, y + radius * .7 + 24);
@@ -500,6 +502,8 @@ export class StarMap {
       return;
     }
     const visibleBodies = this.bodies.filter(b => !b.system || b.system === this.system);
+    const star=visibleBodies.find(b=>b.kind==='star');
+    if(star&&this.span>stellarRadius(star)*12){const [x,y]=this.project(star.position);drawOrbitalLight(c,star,x,y,Math.min(this.w,this.h)*.65,Math.sin(this.pitch));}
     const line = (points, color, width = 1, dash = []) => {
       c.beginPath();
       points.forEach((p, i) => {
@@ -518,7 +522,7 @@ export class StarMap {
         let ps = Array.from({
           length: 129
         }, (_, i) => [Math.cos(i * Math.PI / 64) * r, Math.sin(i * Math.PI / 64) * r, 0]);
-        line(ps, '#49657050');
+        line(ps, starColor(star,.16));
       }
       line([
         [-6e10, 0, 0],
@@ -564,9 +568,10 @@ export class StarMap {
     const occupied=[],markers=new Set();
     for (let b of sorted) {
       let [x, y] = this.project(b.position);
-      const bound = Math.max(30, (b.radius || 0) * this.scale);
+      const bound = Math.max(30, (b.kind==='star'?stellarRadius(b)*3.2:b.radius||0) * this.scale);
       // Keep an enormous nearby globe from becoming an opaque backdrop in a station close-up.
-      if (b.radius > 0 && bound > Math.max(this.w,this.h)*4 && this.byId.get(this.selected)?.model) continue;
+      const selection=this.byId.get(this.selected);
+      if (b.radius > 0 && bound > Math.max(this.w,this.h)*4 && selection?.model&&selection.modelRole!=='symbol') continue;
       if (x < -bound || x > this.w + bound || y < -bound || y > this.h + bound) continue;
       if (b.hidden) continue;
       if (b.category === 'auxiliary' && this.selected !== b.id) continue;
@@ -579,12 +584,16 @@ export class StarMap {
       if(!pinned&&this.span>detailSpan(b,container)*(this.markerVisibility.has(b.id)?1.18:1))continue;
       // Do not draw a cloud of diamonds over a planet or at the same station hub.
       if(!major&&b.kind!=='moon'&&!pinned&&!markerFits({x,y},occupied,this.w<500?42:30))continue;
-      let r = b.kind === 'star' ? 10 : b.radius > 0 ? Math.max(b.kind === 'planet' ? 13 : 7, b.radius * this.scale) : 4;
+      let r = b.kind === 'star' ? Math.max(10,stellarRadius(b)*this.scale) : b.radius > 0 ? Math.max(b.kind === 'planet' ? 13 : 7, b.radius * this.scale) : 4;
       occupied.push({x,y,r:major||b.kind==='moon'?Math.min(r,60):4});markers.add(b.id);
       let color = b.kind === 'star' ? '#e7ce90' : b.kind === 'gateway' ? '#d9bf88' : b.kind === 'planet' ? '#86c8d0' : '#6b9ca8';
-      const model=b.model&&this.span<4e8&&(!parent||this.span<parent.radius*12)?this.mapModels.get(b,this.yaw,this.pitch):null;
-      if(model){
-        r=Math.max(14,Math.min(72,(b.modelSize||1000)*this.scale));
+      const detailedModel=b.modelRole!=='symbol'&&this.span<4e8&&(!parent||this.span<parent.radius*12);
+      // Share one fixed silhouette per game mesh until a close-up needs camera rotation.
+      const model=b.model?this.mapModels.get(b.modelRole==='symbol'?{...b,rotation:[1,0,0,0]}:b,detailedModel?this.yaw:0,detailedModel?this.pitch:-.6):null;
+      if(b.kind==='star'){
+        drawStar(c,this.starSurfaces,b,x,y,r);
+      }else if(model){
+        r=detailedModel?Math.max(14,Math.min(72,(b.modelSize||1000)*this.scale)):pinned?12:9;
         c.drawImage(model,x-r,y-r,r*2,r*2);
       } else if (b.radius > 0 || b.kind === 'star') {
         const globe = this.globeTextures.get(b, this.yaw, this.pitch, r > 150 && !this.pointers.size ? 384 : 256);

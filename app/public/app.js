@@ -262,7 +262,7 @@ function selectBody(b, focus = true) {
   const parent = bodies.find(p => p.id === b.parent);
   root.replaceChildren(el('h3', b.name), el('small', b.kind.toUpperCase() + (parent ? ' · ' + parent.name : '')));
   if(b.kind==='om')root.append(el('p','Derived orbital position; OM numbering is approximate.','hint'));
-  if(b.model)root.append(el('p','Extracted game starmap model.','hint'));
+  if(b.model&&b.modelRole!=='symbol')root.append(el('p','Extracted game starmap model.','hint'));
   let actions = el('div', undefined, 'inline');
   for (let [id, label] of [
       ['origin', 'Depart here'],

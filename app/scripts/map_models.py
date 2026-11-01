@@ -40,7 +40,7 @@ def extract_models(archive,catalog,metadata,root):
     sources={}
     for body in catalog['bodies']:
         meta=metadata.get(body.get('navigationRecord'),{});geometry=meta.get('starMapGeomPath','').lower()
-        if geometry.startswith('objects/ui/starmap/stations/') and geometry.endswith('.cgf'):
+        if not body.get('radius') and geometry.startswith('objects/ui/starmap/') and geometry.endswith('.cgf'):
             sources.setdefault(geometry,[]).append((body,meta))
     paths=[]
     for source,targets in sorted(sources.items()):
@@ -57,5 +57,5 @@ def extract_models(archive,catalog,metadata,root):
         raw=json.dumps(mesh,separators=(',',':'));digest=hashlib.sha256(raw.encode()).hexdigest()[:12]
         relative='game-assets/models/'+Path(stem).name+'-'+digest+'.json';target=root/'public'/relative;target.parent.mkdir(parents=True,exist_ok=True)
         temp=target.with_suffix('.tmp');temp.write_text(raw);temp.replace(target);paths.append(relative)
-        for body,meta in targets:body.update(model=relative,modelSource=chosen+'.cgf',modelSize=max(1,meta.get('size',1)))
+        for body,meta in targets:body.update(model=relative,modelSource=chosen+'.cgf',modelSize=max(1,meta.get('size',1)),modelRole='structure' if '/stations/' in source else 'symbol')
     return paths

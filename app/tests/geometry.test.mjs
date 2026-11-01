@@ -4,6 +4,7 @@ import {StarMap} from '../public/map.js';
 import {globePixels,inverseRotate} from '../public/sphere.js';
 import {positionOnRoute} from '../public/route.js';
 import {modelFaces,MapModels} from '../public/models.js';
+import {stellarRadius,starPixels} from '../public/stars.js';
 import fs from 'node:fs';
 const catalog=JSON.parse(fs.readFileSync(new URL('../public/catalog.json',import.meta.url),'utf8'));
 globalThis.ResizeObserver=class{observe(){}};globalThis.requestAnimationFrame=()=>{};globalThis.devicePixelRatio=1;
@@ -82,4 +83,22 @@ test('a searched station remains visible at overview scale and local detail is s
  const secondary=map.hits.filter(h=>h.body&&!h.box&&!['planet','moon','star','body','gateway'].includes(h.body.kind)&&h.body.id!==map.selected);
  for(let i=0;i<secondary.length;i++)for(let j=0;j<i;j++)assert.ok(Math.hypot(secondary[i].x-secondary[j].x,secondary[i].y-secondary[j].y)>=30);
  const labels=map.hits.filter(h=>h.box&&!h.box.item.major&&!h.box.item.selected&&!h.box.item.important);assert.ok(labels.length<=6);
+});
+
+test('a game navigation symbol does not turn a surface POI into a station close-up',()=>{
+ const {map}=fixture();const poi=catalog.bodies.find(b=>b.modelRole==='symbol'&&map.surfaceParent(b));
+ assert.ok(poi);const parent=map.surfaceParent(poi);map.setSystem(poi.system);map.focus(poi);
+ assert.equal(map.span,parent.radius*2.8);assert.deepEqual(map.center,parent.position);
+});
+
+test('all extracted stars focus to a close-up while retaining their game material',()=>{
+ const {map}=fixture();for(const star of catalog.bodies.filter(b=>b.kind==='star')){
+  assert.ok(star.starAppearance.source.startsWith('materials/stellar_classes/'));
+  map.setSystem(star.system);map.focus(star);map.draw();assert.equal(map.span,stellarRadius(star)*4);
+  assert.deepEqual(map.center,star.position);const hit=map.hits.find(h=>h.body?.id===star.id&&!h.box);
+  assert.ok(hit.r>=Math.min(map.w,map.h)/4);assert.ok(map.hits.some(h=>h.body?.id===star.id&&h.box));
+ }
+ const pixels=starPixels([1,.49,.17],32),at=(16*32+16)*4;
+ assert.equal(pixels[3],0);assert.equal(pixels[at+3],255);assert.ok(pixels[at]>pixels[at+1]);
+ assert.ok(pixels[at+2]>80,'self-lit surface must not receive a dark planet terminator');
 });

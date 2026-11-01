@@ -98,16 +98,23 @@ def normalize(records,assets,localization,destination,build):
         ports=[]
         for x in walk(parts.get('SItemPortContainerComponentParams',{})):
             if x.get('_Type_')=='SItemPortDef':ports.append(dict(name=x.get('Name'),min=x.get('MinSize'),max=x.get('MaxSize'),types=x.get('Types',[]),flags=x.get('Flags','')))
-        image=None
+        image=None;source=None
         if vehicle:
             candidates=[record.lower(),record.split('_',1)[-1].lower(),name.lower().replace(' ','_')]
             source=next((images[c] for c in candidates if c in images),None)
             if not source:
                 display=next((x.get('displayIcon','') for x in v.get('StaticEntityClassData',[]) if x.get('_Type_')=='EntityUIDisplayParams'),'')
                 source=images.get(Path(display).stem.lower())
-            if source:
-                image=f'images/{ident}.webp';target=destination/image;target.parent.mkdir(parents=True,exist_ok=True)
+        else:
+            display=next((x.get('displayIcon','') for x in (v.get('StaticEntityClassData') or []) if isinstance(x,dict) and x.get('_Type_')=='EntityUIDisplayParams'),'')
+            source=images.get(Path(display.replace('\\','/')).stem.lower())
+        if source:
+            digest=hashlib.sha256(source.read_bytes()).hexdigest()[:20]
+            image=f'images/{digest}.webp';target=destination/image;target.parent.mkdir(parents=True,exist_ok=True)
+            if not target.exists():
                 with Image.open(source) as im:im.thumbnail((640,400));im.save(target,'WEBP',quality=82)
+            summary['imageSource']=source.relative_to(assets).as_posix()
+            summary['imageKind']='ship artwork' if vehicle else 'loadout icon'
         summary['image']=image;summary['stats']=stats
         detail=dict(**summary,description=description,record=record,source=p.relative_to(records).as_posix(),sources=sources,loadout=loadout,ports=ports,rawStats=scalars[:160])
         summaries.append(summary);details[ident]=detail
@@ -126,13 +133,13 @@ def run(game,force=False):
     tool=ROOT/'.devtools/starbreaker-v0.3.2/starbreaker.exe'
     if not tool.exists():raise ValueError('Run scripts/setup_v2_extractor.ps1 first')
     if hashlib.sha256(tool.read_bytes()).hexdigest()!='82439e45cd5337f058f06ded63ee633bea8de8e4d75525f5a083aa7955b91a10':raise ValueError('Extractor checksum mismatch')
-    signature=dict(size=(game/'Data.p4k').stat().st_size,mtime=(game/'Data.p4k').stat().st_mtime_ns,pipeline=2)
+    signature=dict(size=(game/'Data.p4k').stat().st_size,mtime=(game/'Data.p4k').stat().st_mtime_ns,pipeline=3)
     state=ROOT/'storage/v2-state.json'
     if not force and state.exists() and json.loads(state.read_text()).get('signature')==signature:return
     with tempfile.TemporaryDirectory(prefix='kittizen-catalog-') as staging:
         raw=Path(staging)/'records';assets=Path(staging)/'assets'
         subprocess.run([str(tool),'dcb','extract','--p4k',str(game/'Data.p4k'),'--format','json','-o',str(raw),'--mem-cap','4096'],check=True,timeout=600)
-        subprocess.run([str(tool),'p4k','extract','--p4k',str(game/'Data.p4k'),'-o',str(assets),'--regex',r'(?i)(scripts[\\/]entities[\\/]vehicles[\\/]implementations[\\/]xml[\\/].*\.xml$|ui[\\/](textures[\\/]ea[\\/]vehicleicons|frontend[\\/]assets[\\/]tif[\\/]ships)[\\/].*\.dds$|localization[\\/]english[\\/]global\.ini$)','--convert','all','--max-threads','4'],check=True,timeout=180)
+        subprocess.run([str(tool),'p4k','extract','--p4k',str(game/'Data.p4k'),'-o',str(assets),'--regex',r'(?i)(scripts[\\/]entities[\\/]vehicles[\\/]implementations[\\/]xml[\\/].*\.xml$|ui[\\/](textures[\\/]ea[\\/](?:vehicleicons|loadouticons)|frontend[\\/]assets[\\/]tif[\\/]ships)[\\/].*\.dds$|localization[\\/]english[\\/]global\.ini$)','--convert','all','--max-threads','4'],check=True,timeout=180)
         if (game/'Data.p4k').stat().st_mtime_ns!=signature['mtime']:raise ValueError('Game changed during extraction; previous catalogue retained')
         return publish(raw,assets,signature)
 
@@ -158,5 +165,5 @@ def publish(raw,assets,signature):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--game',type=Path,default=Path(r'D:\Games\Roberts Space Industries\StarCitizen\LIVE'));parser.add_argument('--force',action='store_true');parser.add_argument('--from-export',action='store_true');args=parser.parse_args()
-    if args.from_export:publish(ROOT/'storage/v2-records',ROOT/'storage/v2-assets',dict(source='initial-installed-export',pipeline=1))
+    if args.from_export:publish(ROOT/'storage/v2-records',ROOT/'storage/v2-assets',dict(source='initial-installed-export',pipeline=3))
     else:run(args.game,args.force)

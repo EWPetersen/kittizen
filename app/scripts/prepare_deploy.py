@@ -3,7 +3,7 @@ import hashlib,importlib.util,json,shutil,tempfile
 from pathlib import Path
 APP=Path(__file__).resolve().parents[1]
 BACKEND=('server.py','routing.py','database.py','workspace.py')
-STATIC=('index.html','style.css','app.js','map.js','sphere.js','models.js','route.js','heatmap.js','catalog.json','v2.html','v2.css','v2.js','v2-catalog.json','v3.html','v3.css','v3-tools.js','v3-math.js','v3-data.json','ship-builds.js')
+STATIC=('index.html','style.css','app.js','map.js','sphere.js','models.js','stars.js','route.js','heatmap.js','catalog.json','v2.html','v2.css','v2.js','v2-catalog.json','v3.html','v3.css','v3-tools.js','v3-math.js','v3-data.json','ship-builds.js')
 TEMPLATES=('api/index.py','vercel.json','requirements.txt','pyproject.toml','.env.example','.python-version','.vercelignore','schema.sql','verify_deploy.py')
 
 def prepare(source,destination):

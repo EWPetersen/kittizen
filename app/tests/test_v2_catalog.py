@@ -25,3 +25,15 @@ class V2CatalogTests(unittest.TestCase):
         self.assertEqual(gladius['stats']['Crew']['value'],1)
         self.assertEqual(gladius['stats']['Length']['value'],21)
         self.assertTrue((base/gladius['image']).is_file())
+
+    def test_game_artwork_is_referenced_shared_and_present(self):
+        pointer=json.loads((ROOT/'v2-catalog.json').read_text());base=ROOT/pointer['base'].lstrip('/')
+        items=json.loads((base/'index.json').read_text())['items']
+        illustrated=[i for i in items if i.get('image')]
+        self.assertGreater(len([i for i in illustrated if i['category']=='Weapons']),20)
+        self.assertGreater(len([i for i in illustrated if i['category']=='Equipment']),20)
+        self.assertLess(len({i['image'] for i in illustrated}),len(illustrated))
+        for item in illustrated:
+            asset=(base/item['image']).resolve();self.assertTrue(asset.is_relative_to(base.resolve()))
+            self.assertTrue(asset.is_file());self.assertIn(item['imageKind'],('ship artwork','loadout icon'))
+            self.assertTrue(item['imageSource'].lower().endswith('.png'))
