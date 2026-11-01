@@ -279,14 +279,14 @@ function selectBody(b, focus = true) {
   map.selected = b.id;
   if (focus) map.focus(b);
   $('#map-name').textContent = b.name;
-  $('#map-subtitle').textContent = b.kind.toUpperCase() + ' / ' + (b.system || 'stanton').toUpperCase();
+  $('#map-subtitle').textContent = (b.modelStyle==='asteroid'?'ASTEROID BASE':b.kind.toUpperCase()) + ' / ' + (b.system || 'stanton').toUpperCase();
   let root = $('#selection');
   const parent = bodies.find(p => p.id === b.parent);
   root.replaceChildren(el('h3', b.name), el('small', b.kind.toUpperCase() + (parent ? ' · ' + parent.name : '')));
   mapLocationActions(b);
   if(b.artwork){const image=el('img');image.src=b.artwork;image.alt=b.name+' · game location artwork';image.className='location-art';image.loading='lazy';image.decoding='async';root.append(image);}
   if(b.kind==='om')root.append(el('p','Derived orbital position; OM numbering is approximate.','hint'));
-  if(b.model&&b.modelRole!=='symbol')root.append(el('p','Extracted game starmap model.','hint'));
+  if(b.model&&b.modelRole!=='symbol')root.append(el('p',b.modelNote||'Extracted game starmap model.','hint'));
   let actions = el('div', undefined, 'inline');
   for (let [id, label] of [
       ['origin', 'Depart here'],
@@ -573,6 +573,7 @@ async function start() {
     catalog = await fetch('catalog.json').then(r => r.json());
     bodies = catalog.bodies;
     map = new StarMap($('#map'), bodies, b => selectBody(b), (t, r) => r ? focusActivity(r) : report(t));
+    map.belts=catalog.belts||[];
     map.systems = catalog.systems || [{
       id: 'stanton',
       name: 'Stanton',
@@ -640,6 +641,7 @@ async function syncGame() {
       catalog = fresh;
       bodies = fresh.bodies;
       map.setBodies(bodies);
+      map.belts=fresh.belts||[];
       map.systems = fresh.systems || map.systems;
       map.globeTextures.cache.clear();
       activeRoute = null;

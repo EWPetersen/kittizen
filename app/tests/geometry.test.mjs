@@ -22,6 +22,15 @@ test('jump gate delegates to transition handler without changing system prematur
  map.center=[...gate.position];map.span=1e6;map.draw();const hit=map.hits.find(h=>h.body?.id===gate.id);let destination;
  map.onJump=id=>destination=id;events.dblclick({clientX:hit.x,clientY:hit.y});assert.equal(destination,'pyro');assert.equal(map.system,'stanton');
 });
+
+test('every jump portal focuses its actual game coordinate without loading the generic marker mesh',()=>{
+ const {map}=fixture();map.mapModels.get=b=>{assert.notEqual(b.kind,'gateway');return null;};
+ for(const gate of catalog.bodies.filter(b=>b.kind==='gateway')){
+  map.setSystem(gate.system);map.focus(gate);map.draw();assert.deepEqual(map.center,gate.position);assert.equal(map.span,20000);
+  const hit=map.hits.find(h=>!h.box&&h.body?.id===gate.id);assert.ok(hit,gate.name);assert.equal(hit.x,map.w/2);assert.equal(hit.y,map.h/2);
+  assert.ok(hit.r>Math.min(map.w,map.h)*.35&&hit.r<Math.min(map.w,map.h)*.4);
+ }
+});
 test('actual station models are bounded, shared and rotate with the map camera',()=>{
  const bodies=catalog.bodies.filter(b=>b.model);assert.ok(bodies.some(b=>b.kind==='comm'));assert.ok(bodies.some(b=>b.name==='Port Tressler'));
  const paths=new Set(bodies.map(b=>b.model));assert.ok(paths.size<bodies.length);
@@ -190,11 +199,22 @@ test('viewport globe rendering keeps an enormous parent opaque just inside its l
  assert.equal(pixels[(10*32+16)*4+3],0);assert.equal(pixels[(20*32+16)*4+3],255);
 });
 
-test('landing zones and gateways use the referenced game map symbols and location art',()=>{
- for(const name of ['Levski','New Babbage','Lorville','Area18','Orison']){
+test('landing zones and gateways retain game references and Levski uses native asteroid geometry',()=>{
+ for(const name of ['New Babbage','Lorville','Area18','Orison']){
   const b=catalog.bodies.find(b=>b.name===name);assert.equal(b.modelRole,'symbol');assert.ok(b.modelSource.endsWith('.cga'));assert.ok(b.artwork);assert.ok(fs.existsSync(new URL('../public/'+b.artwork,import.meta.url)));
  }
  for(const b of catalog.bodies.filter(b=>b.kind==='gateway')){assert.equal(b.modelRole,'symbol');assert.ok(b.modelSource.includes('general_icon_1_b'));}
+ const levski=catalog.bodies.find(b=>b.name==='Levski'),grim=catalog.bodies.find(b=>b.name==='Grim HEX');
+ assert.equal(levski.modelRole,'structure');assert.equal(levski.modelStyle,'asteroid');assert.ok(levski.modelSource.includes('angular_smooth_01_03400'));
+ assert.ok(levski.modelNote.includes('schematic'));assert.equal(grim.modelStyle,'asteroid');assert.ok(grim.modelSource.includes('smap_station_grimhex'));
+});
+
+test('belt catalogue uses current game radii and renders as background without changing jump targets',()=>{
+ const belts=catalog.belts;assert.equal(belts.length,3);const a=belts.find(b=>b.name==='Aaron Halo');
+ assert.equal(a.innerRadius,19597600000);assert.equal(a.outerRadius,21392800000);assert.equal(a.depth,10000000);
+ for(const [name,radius] of [['Keeger Belt',48000000000],['Glaciem Ring',15000001000]]){const b=belts.find(b=>b.name===name);assert.equal(b.innerRadius,radius);assert.equal(b.outerRadius,radius);assert.equal(b.radialWidthKnown,false);}
+ const {map}=fixture();map.belts=belts;
+ for(const id of ['stanton','nyx']){map.setSystem(id);map.draw();assert.ok(map.hits.filter(h=>h.body?.kind==='gateway').length);assert.ok(map.hits.every(h=>!h.body||h.body.kind!=='belt'));}
 });
 
 test('Pyro named station hubs survive system overview while asteroid bases stay local',()=>{

@@ -4,6 +4,8 @@ import {
 import {activityWeight,heatField,heatPixels} from './heatmap.js';
 import {MapModels} from './models.js';
 import {StarSurfaces,stellarRadius,stellarFocusSpan,drawStar,drawOrbitalLight,starColor} from './stars.js';
+import {PORTAL_SPAN,portalRadius,drawJumpPortal,animatePortal} from './portals.js';
+import {drawBelts} from './belts.js';
 // Stable candidate order and remembered anchor choices reduce label swapping while orbiting.
 export function labelPriority(body,selected=false) {
   return body.kind==='planet'||body.kind==='body'?0:body.kind==='gateway'?1:body.kind==='star'?2:body.mapImportance==='primary'?3:body.kind==='moon'?4:selected?5:body.kind==='lagrange'?6:body.kind==='om'?7:8;
@@ -91,6 +93,7 @@ export class StarMap {
     this.mapModels = new MapModels(() => this.invalidate());
     this.starSurfaces=new StarSurfaces(()=>this.invalidate());
     new ResizeObserver(() => this.invalidate()).observe(canvas);
+    document.addEventListener?.('visibilitychange',()=>this.invalidate());
     canvas.addEventListener('wheel', e => {
       e.preventDefault();
       const rect = canvas.getBoundingClientRect(),
@@ -247,6 +250,7 @@ export class StarMap {
     this.invalidate();
   }
   home() {
+    clearTimeout(this.portalTimer);this.portalTimer=null;
     this.transition = null;
     if (this.system === 'universe') {
       this.center = [0, 0, 0];
@@ -296,6 +300,7 @@ export class StarMap {
     this.selected = b.id;
     const target=this.camera();
     if(b.kind==='star')target.span=stellarFocusSpan(this.bodies);
+    if(b.kind==='gateway')target.span=PORTAL_SPAN;
     if(b.kind==='om'){
       target.span=Math.max(2e4,parent ? parent.radius*4 : 2e6);
       target.pitch=Math.max(-Math.PI/2+.01,Math.min(Math.PI/2-.01,target.pitch-.55));
@@ -548,6 +553,7 @@ export class StarMap {
       return;
     }
     const visibleBodies = this.bodies.filter(b => !b.system || b.system === this.system);
+    const beltLabels=drawBelts(c,this.belts,this.system,p=>this.project(p),this.center,this.span,this.w,this.h);
     const star=visibleBodies.find(b=>b.kind==='star');
     if(star&&this.span>stellarRadius(star)*12){const [x,y]=this.project(star.position);drawOrbitalLight(c,star,x,y,Math.min(this.w,this.h)*.65,Math.sin(this.pitch));}
     const line = (points, color, width = 1, dash = []) => {
@@ -587,7 +593,7 @@ export class StarMap {
         length: 97
       }, (_, i) => [p.position[0] + Math.cos(i * Math.PI / 48) * r, p.position[1] + Math.sin(i * Math.PI / 48) * r, p.position[2]]), '#35505a60');
     }
-    const labels=[];
+    const labels=[...beltLabels];
     if (this.routePlan) {
       for (const segment of this.routePlan.legs.filter(l => l.kind !== 'jump' && l.system === this.system)) {
         line([segment.start, segment.end], segment.kind === 'local' ? '#e9c28d' : '#a9dcff', 2, [7, 5]);
@@ -613,7 +619,8 @@ export class StarMap {
     const priority = b => labelPriority(prominent(b)?b:{...b,mapImportance:'local'},important(b));
     const layer=b=>b.radius>0||b.kind==='star'?0:b.id===this.selected?2:1;
     const sorted = [...visibleBodies].sort((a,b)=>layer(a)-layer(b)||priority(a)-priority(b)||Number(this.markerVisibility.has(b.id))-Number(this.markerVisibility.has(a.id))||a.id.localeCompare(b.id));
-    const occupied=[],markers=new Set();
+    clearTimeout(this.portalTimer);this.portalTimer=null;
+    const occupied=[],markers=new Set();let portalMoving=false;
     for (let b of sorted) {
       let [x, y] = this.project(b.position);
       const bound = Math.max(30, (b.kind==='star'?stellarRadius(b)*3.2:b.radius||0) * this.scale);
@@ -636,9 +643,15 @@ export class StarMap {
       let color = b.kind === 'star' ? '#e7ce90' : b.kind === 'gateway' ? '#d9bf88' : b.kind === 'planet' ? '#86c8d0' : '#6b9ca8';
       const detailedModel=b.modelRole!=='symbol'&&this.span<4e8&&(!parent||this.span<parent.radius*12);
       // Share one fixed silhouette per game mesh until a close-up needs camera rotation.
-      const model=b.model?this.mapModels.get(b.modelRole==='symbol'?{...b,rotation:[1,0,0,0]}:b,detailedModel?this.yaw:0,detailedModel?this.pitch:-.6,detailedModel&&(selected||(b.modelSize||1000)*this.scale>160)?(this.pointers.size?256:Math.min(this.w,this.h)>600?1024:512):160):null;
+      const model=b.model&&b.kind!=='gateway'?this.mapModels.get(b.modelRole==='symbol'?{...b,rotation:[1,0,0,0]}:b,detailedModel?this.yaw:0,detailedModel?this.pitch:-.6,detailedModel&&(selected||(b.modelSize||1000)*this.scale>160)?(this.pointers.size?256:Math.min(this.w,this.h)>600?1024:512):160):null;
       if(b.kind==='star'){
         drawStar(c,this.starSurfaces,b,x,y,r);
+      }else if(b.kind==='gateway'){
+        r=portalRadius(this.span,Math.min(this.w,this.h));
+        const active=this.systems.some(s=>s.id===b.destinationSystem),reducedMotion=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const moving=animatePortal({selected,radius:r,visible:document.visibilityState==='visible',reducedMotion,dragging:this.pointers.size>0,connected:active});
+        const seed=[...b.id].reduce((sum,char)=>sum+char.charCodeAt(0),0)*.37;
+        drawJumpPortal(c,x,y,r,{phase:moving?performance.now()/1000+seed:seed,active,pitch:this.pitch,yaw:this.yaw});portalMoving||=moving;
       }else if(model){
         r=detailedModel?Math.max(14,Math.min(Math.min(this.w,this.h)*.44/(model.meshExtent||model.meshRadius||.5),(b.modelSize||1000)*this.scale)):selected&&parent&&this.span<parent.radius?28:pinned||major?12:9;
         c.drawImage(model,x-r,y-r,r*2,r*2);
@@ -703,6 +716,7 @@ export class StarMap {
       labels.push({id:b.id,x,y,r:displayR,text,width:c.measureText(text).width,body:b,selected,important:pinned,major:prominentLabel,priority:priority(b)});
     }
     this.markerVisibility=markers;
+    if(portalMoving)this.portalTimer=setTimeout(()=>{this.portalTimer=null;this.invalidate();},50);
     this.drawHeatmap();
     const obstacles=[];
     for(const overlay of document.querySelectorAll?.('.map-title,.map-controls,#heat-legend,#report,.map-bottom,.map-help,.panel-toggle')||[]){

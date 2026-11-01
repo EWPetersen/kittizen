@@ -2,6 +2,8 @@ globalThis.ImageData=class{constructor(data,width,height){Object.assign(this,{da
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {StarMap,layoutLabels,labelPriority,trackLabels} from '../public/map.js';
+import {portalRim,portalRadius,animatePortal} from '../public/portals.js';
+import {beltParticles} from '../public/belts.js';
 globalThis.ResizeObserver=class{observe(){}};
 let frames=[];globalThis.requestAnimationFrame=f=>frames.push(f);globalThis.devicePixelRatio=3;
 const scaleLabel={textContent:''};globalThis.document={createElement:()=>({getContext:()=>({putImageData(){}})}),querySelector:()=>scaleLabel};
@@ -12,6 +14,24 @@ function fixture(){
  const map=new StarMap(canvas,bodies,b=>selected=b,t=>routeHit=t);frames=[];map.pending=false;map.draw();return {map,canvas,events,bodies,get selected(){return selected},get routeHit(){return routeHit}};
 }
 test('DPR cap and no idle animation loop',()=>{let {map,canvas}=fixture();assert.equal(canvas.width,585);assert.equal(canvas.height,1050);map.invalidate();map.invalidate();assert.equal(frames.length,1);frames.shift()();assert.equal(frames.length,0);});
+
+test('portal artwork stays bounded and changes smoothly without random texture work',()=>{
+ for(const phase of [0,1,10000]){const rim=portalRim(phase);assert.equal(rim.length,97);assert.ok(rim.every(p=>p.every(Number.isFinite)&&Math.hypot(...p)>=.9&&Math.hypot(...p)<=1.1));assert.ok(Math.hypot(rim[0][0]-rim.at(-1)[0],rim[0][1]-rim.at(-1)[1])<1e-10);}
+ assert.notDeepEqual(portalRim(0),portalRim(1));assert.deepEqual(portalRim(1),portalRim(1));
+ assert.equal(portalRadius(1e12,390),8);assert.ok(portalRadius(20000,390)<390*.4);
+});
+
+test('portal motion runs only for a visible connected close-up and honours reduced motion',()=>{
+ const active={selected:true,radius:150,visible:true,reducedMotion:false,dragging:false,connected:true};assert.equal(animatePortal(active),true);
+ for(const patch of [{selected:false},{radius:8},{visible:false},{reducedMotion:true},{dragging:true},{connected:false}])assert.equal(animatePortal({...active,...patch}),false);
+});
+
+test('belt particles follow extracted radial bounds and preserve centreline-only data',()=>{
+ const belt={center:[100,200,300],rotation:[1,0,0,0],innerRadius:10000,outerRadius:12000,depth:100};
+ const particles=beltParticles(belt,300);assert.equal(beltParticles(belt,300),particles);
+ for(const p of particles){const r=Math.hypot(p[0]-100,p[1]-200);assert.ok(r>=10000&&r<=12000);assert.ok(Math.abs(p[2]-300)<=50);}
+ const line={...belt,innerRadius:15000,outerRadius:15000,depth:0};for(const p of beltParticles(line,50))assert.ok(Math.abs(Math.hypot(p[0]-100,p[1]-200)-15000)<1e-8);
+});
 test('camera origin retains local metre detail far from system origin',()=>{let {map}=fixture();map.center=[4e10,3e10,0];map.span=2e6;map.draw();let a=map.project(map.center),b=map.project([4e10+1000,3e10,0]);assert.equal(a[0],195);assert.ok(Math.abs(b[0]-a[0])>.1);});
 test('zoom cannot leave supported extent',()=>{let {map}=fixture();map.zoom(1e30);assert.equal(map.span,500);map.zoom(1e-30);assert.equal(map.span,3e12);});
 test('body selection and planet focus',()=>{let f=fixture(),p=f.map.project(f.bodies[0].position);f.map.click({clientX:p[0],clientY:p[1]});assert.equal(f.selected.id,'a');f.map.focus(f.bodies[0]);assert.deepEqual(f.map.center,f.bodies[0].position);assert.equal(f.map.span,1.6e6);});

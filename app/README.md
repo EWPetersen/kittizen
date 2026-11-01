@@ -117,3 +117,5 @@ See [deployment/README.md](deployment/README.md) for the prepared Vercel + Supab
 
 
 Public source repository note: generated `public/catalog.json` and `public/game-assets/` are not committed. Follow the extraction setup before starting a fresh clone or running tests. They remain in the local working copy and local deployment package.
+
+The environment extraction stage reads Aaron Halo's actual inner/outer radii and depth from its AsteroidRing component, and Nyx's Keeger/Glaciem reference radii validated against placed belt segments. Nyx belt widths are unknown: their artwork adds only pixel-scale scatter around the extracted centreline. Levski uses a native exterior rock component confirmed in the current facility container, with explicitly schematic dock details; Grim HEX retains its native starmap geometry. Procedural jump portals replace generic gate glyphs without changing gate coordinates, route rules or travel destinations; only visible, selected close-ups animate, at 20 fps, with reduced-motion support.

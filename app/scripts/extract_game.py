@@ -11,7 +11,7 @@ from nav_metadata import navigation
 from p4k import P4K
 
 ENTRY = "data/objectcontainers/pu/system/stanton/stantonsystem.socpak"
-PIPELINE_VERSION = 12
+PIPELINE_VERSION = 13
 
 
 def fingerprint(game):
@@ -194,6 +194,8 @@ def update(game, force=False):
     asset_paths.extend(extract_stars(archive,result,nav,ROOT))
     from location_art import extract_location_art
     asset_paths.extend(extract_location_art(archive,result,nav,ROOT))
+    from environment_assets import extract_environment
+    asset_paths.extend(extract_environment(archive,result,ROOT))
     staged.write_text(
         json.dumps(result, separators=(",", ":"), allow_nan=False), encoding="utf-8"
     )
