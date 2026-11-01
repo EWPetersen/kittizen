@@ -546,3 +546,5 @@ body{--nav-width:290px;--intel-width:300px}body main{grid-template-columns:var(-
 .location-art{border:1px solid #9bdcff55;box-shadow:0 0 14px #73c9e21a;filter:drop-shadow(0 0 3px #8bdcff22)}
 body main>#sidebar{grid-column:1;grid-row:1}body main>#map-area{grid-column:2;grid-row:1}body main>#intel{grid-column:3;grid-row:1}
 .map-location-actions{flex-wrap:wrap}@media(max-width:700px){.panel-toggle{min-width:32px}}
+#map-area #report{left:auto;right:24px;transform:none}
+@media(max-width:700px){#map-area #report{left:50%;right:auto;transform:translateX(-50%)}}

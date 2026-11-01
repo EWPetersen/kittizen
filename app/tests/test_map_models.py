@@ -19,3 +19,7 @@ class MapModelTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'index'):compact_gltf(p)
             p,g=self.fixture(Path(temp));g['nodes'][0]['translation']=[1,0,0];p.write_text(json.dumps(g))
             with self.assertRaisesRegex(ValueError,'transform'):compact_gltf(p)
+    def test_duplicate_material_position_buffers_are_welded(self):
+        with tempfile.TemporaryDirectory() as temp:
+            p,g=self.fixture(Path(temp));g['meshes'][0]['primitives']*=3;p.write_text(json.dumps(g));m=compact_gltf(p)
+            self.assertEqual(len(m['vertices']),3);self.assertEqual(m['triangles'],[[0,1,2]]*3)

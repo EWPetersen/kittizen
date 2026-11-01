@@ -6,6 +6,7 @@ import {MapModels} from './models.js';
 import {StarSurfaces,stellarRadius,stellarFocusSpan,drawStar,drawOrbitalLight,starColor} from './stars.js';
 import {PORTAL_SPAN,portalRadius,drawJumpPortal,animatePortal} from './portals.js';
 import {drawBelts} from './belts.js';
+import {globeResolution,modelResolution} from './render-budget.js';
 // Stable candidate order and remembered anchor choices reduce label swapping while orbiting.
 export function labelPriority(body,selected=false) {
   return body.kind==='planet'||body.kind==='body'?0:body.kind==='gateway'?1:body.kind==='star'?2:body.mapImportance==='primary'?3:body.kind==='moon'?4:selected?5:body.kind==='lagrange'?6:body.kind==='om'?7:8;
@@ -115,8 +116,7 @@ export class StarMap {
         const time = e.timeStamp ?? performance.now(),
           prior = this.rightTap;
         if (prior && time - prior.time < 450 && Math.hypot(e.clientX - prior.x, e.clientY - prior.y) < 12) {
-          this.home();
-          this.onSystemChanged?.(this.system);
+          this.stepOut();
           this.rightTap = null;
         } else this.rightTap = {
           time,
@@ -130,8 +130,7 @@ export class StarMap {
     canvas.addEventListener('pointercancel', e => this.pointers.delete(e.pointerId));
     canvas.addEventListener('dblclick', e => {
       if (e.button === 2) {
-        this.home();
-        this.onSystemChanged?.(this.system);
+        // Right-button stepping is handled by pointer-up, once per gesture.
         return;
       }
       const rect = canvas.getBoundingClientRect(),
@@ -182,7 +181,7 @@ export class StarMap {
   advanceCamera(now) {
     const move=this.transition;if(!move)return;
     // Quintic easing starts and finishes with zero velocity and acceleration.
-    const t=Math.min(1,Math.max(0,(now-move.time)/move.duration)),ease=t*t*t*(10+t*(-15+6*t));
+    const t=now-move.time>=move.duration-.01?1:Math.min(1,Math.max(0,(now-move.time)/move.duration)),ease=t*t*t*(10+t*(-15+6*t));
     this.span=Math.exp(Math.log(move.start.span)*(1-ease)+Math.log(move.target.span)*ease);
     // Keep the target's projected distance shrinking steadily as scale changes.
     const remaining=(1-ease)*this.span/move.start.span;
@@ -202,10 +201,15 @@ export class StarMap {
       const [x,y]=this.project(r.position);return {x,y,weight:activityWeight(r,now)};
     }).filter(p=>p.weight>0);
     if(!points.length)return;
-    const data=heatField(points,this.w,this.h),layer=this.heatLayer||(this.heatLayer=document.createElement('canvas'));
-    layer.width=data.width;layer.height=data.height;
-    layer.getContext('2d').putImageData(new ImageData(heatPixels(data.field),data.width,data.height),0,0);
+    const moving=!!this.transition||this.pointers.size>0||performance.now()<(this.motionUntil||0),cell=moving?8:4;
+    const key=JSON.stringify([this.w,this.h,cell,Math.floor(now/15),points.map(p=>[p.x,p.y,Math.round(p.weight*1000)])]),layer=this.heatLayer||(this.heatLayer=document.createElement('canvas'));
+    if(this.heatKey!==key){const data=heatField(points,this.w,this.h,cell);layer.width=data.width;layer.height=data.height;
+      layer.getContext('2d').putImageData(new ImageData(heatPixels(data.field),data.width,data.height),0,0);this.heatKey=key;}
     this.ctx.drawImage(layer,0,0,this.w,this.h);
+  }
+  noteMotion(){
+    this.motionUntil=performance.now()+120;clearTimeout(this.settleTimer);
+    if(document.visibilityState==='visible')this.settleTimer=setTimeout(()=>{this.motionUntil=0;this.invalidate();},125);
   }
   project(p) {
     let [x, y, z] = p.map((v, i) => v - this.center[i]);
@@ -214,6 +218,7 @@ export class StarMap {
     return [this.w / 2 + u * this.scale, this.h / 2 + (v * Math.sin(this.pitch) - z * Math.cos(this.pitch)) * this.scale, v * Math.cos(this.pitch) + z * Math.sin(this.pitch)];
   }
   zoom(f, anchor) {
+    this.noteMotion();
     this.transition = null;
     if (this.system === 'universe' && f > 1 && this.span / f < 45) {
       const point = anchor || [this.w / 2, this.h / 2],
@@ -250,8 +255,10 @@ export class StarMap {
     this.invalidate();
   }
   home() {
+    clearTimeout(this.settleTimer);this.motionUntil=0;
     clearTimeout(this.portalTimer);this.portalTimer=null;
     this.transition = null;
+    this.view={level:this.system==='universe'?'universe':'system'};this.orbitFocus=null;this.selected=null;
     if (this.system === 'universe') {
       this.center = [0, 0, 0];
       for (const s of this.systems) s.position.forEach((v, i) => this.center[i] += v / this.systems.length);
@@ -277,11 +284,22 @@ export class StarMap {
     this.home();
     this.onSystemChanged?.(id);
   }
-  focus(b) {
+  localSpan(body){
+    const children=this.bodies.filter(b=>b.parent===body.id);
+    const distance=b=>Math.hypot(...b.position.map((v,i)=>v-body.position[i]))+(b.radius||0),orbiters=children.filter(b=>b.kind==='moon'||b.kind==='planet');
+    const localRadius=Math.max(body.radius*25,...orbiters.map(distance));
+    // Some mining bases inherit a planet container while lying billions of
+    // metres away. They must not turn a local moon view into a system view.
+    return Math.max(body.radius*8,...children.filter(b=>distance(b)<=localRadius).map(b=>distance(b)*2.6));
+  }
+  focus(b,{close=false}={}) {
+    const active=this.byId.get(this.view?.bodyId),localContext=this.view?.bodyId===b.id||this.orbitFocus===b.id||this.view?.level==='location'&&active&&this.surfaceParent(active)?.id===b.id;
+    if(b.kind==='planet'&&!close&&(!localContext||this.span>this.localSpan(b)*1.25)){this.focusSystem(b);return;}
     const start=this.camera();
+    this.orbitFocus=null;this.view={level:b.radius>0||b.kind==='star'?'body':'location',bodyId:b.id};
     this.center = [...b.position];
     const parent = b.radius > 0 ? null : this.surfaceParent(b);
-    this.span = b.radius > 0 ? b.radius * 1.6 : b.kind === 'star' ? 1.2e11 : parent ? parent.radius * 2.8 : 2e7;
+    this.span = b.radius > 0 ? b.radius * 2.8 : b.kind === 'star' ? 1.2e11 : parent ? parent.radius * 2.8 : 2e7;
     if (parent) {
       const normal = b.position.map((v, i) => v - parent.position[i]),
         length = Math.hypot(...normal);
@@ -306,11 +324,11 @@ export class StarMap {
       target.pitch=Math.max(-Math.PI/2+.01,Math.min(Math.PI/2-.01,target.pitch-.55));
     }
     if(parent&&b.kind!=='om'&&!b.radius&&(!b.model||b.modelRole==='symbol')){
-      target.center=[...b.position];target.span=Math.max(20000,Math.min(2e6,parent.radius*.08));
+      target.center=[...b.position];target.span=Math.max(25000,Math.min(2.5e6,parent.radius*.1));
     }
     if(b.model&&b.modelRole!=='symbol'){
-      target.center=[...b.position];target.span=Math.max(500,(b.modelSize||1000)*.75);
-      if(parent){
+      target.center=[...b.position];target.span=Math.max(600,(b.modelSize||1000)*.95);
+      if(parent&&b.modelRole!=='surface'){
         // Look along the parent body's limb with the station in the foreground.
         const distance=Math.hypot(...b.position.map((v,i)=>v-parent.position[i]));
         target.pitch-=Math.asin(Math.min(.9999,parent.radius/Math.max(1,distance)));
@@ -323,7 +341,7 @@ export class StarMap {
     const system=report.system||'stanton';
     if(this.system!==system)this.setSystem(system);
     const body=this.byId.get(report.locationId);
-    if(body)this.focus(body);
+    if(body)this.focus(body,{close:true});
     else {
       const parent=this.bodies.find(b=>b.system===system&&b.radius>0&&Math.hypot(...report.position.map((v,i)=>v-b.position[i]))<b.radius*2);
       if(parent)this.focus({id:null,parent:parent.id,position:report.position});
@@ -349,6 +367,7 @@ export class StarMap {
     return distance < parent.radius && point[2] - center[2] < Math.sqrt(parent.radius ** 2 - distance ** 2) - 50;
   }
   pan(dx, dy) {
+    this.noteMotion();
     this.transition=null;
     const scale = Math.min(this.w, this.h) / this.span,
       u = dx / scale,
@@ -361,9 +380,23 @@ export class StarMap {
     const start=this.camera();
     this.center = [...body.position];
     this.selected = body.id;
-    const children = this.bodies.filter(b => b.parent === body.id);
-    this.span = Math.max(body.radius * 8, ...children.map(b => Math.hypot(...b.position.map((v, i) => v - body.position[i])) * 2.6));
+    this.orbitFocus=body.id;this.view={level:'orbits',bodyId:body.id};
+    this.span = this.localSpan(body);
     const target=this.camera();Object.assign(this,start);this.flyTo(target);
+  }
+  stepOut(){
+    const body=this.byId.get(this.view?.bodyId),level=this.view?.level;
+    if(level==='universe')return;
+    if(level==='location'&&body){const parent=this.surfaceParent(body);if(parent){this.focus(parent,{close:true});this.onViewChanged?.(parent);return;}}
+    if(level==='body'&&body&&body.kind!=='star'){
+      const parent=body.kind==='moon'?this.surfaceParent(body):body;
+      if(parent){this.focusSystem(parent);this.onViewChanged?.(parent);return;}
+    }
+    if(level==='orbits'&&body?.kind==='moon'){
+      const parent=this.surfaceParent(body);if(parent){this.focusSystem(parent);this.onViewChanged?.(parent);return;}
+    }
+    if(level==='system'){this.setSystem('universe');return;}
+    this.home();this.onSystemChanged?.(this.system);
   }
   fitRoute(a, b) {
     this.route = [a, b];
@@ -532,6 +565,7 @@ export class StarMap {
     this.w = rect.width;
     this.h = rect.height;
     if (!this.w || !this.h) return;
+    const moving=!!this.transition||this.pointers.size>0||performance.now()<(this.motionUntil||0);
     let d = Math.min(devicePixelRatio || 1, 1.5);
     if (this.canvas.width !== Math.round(this.w * d) || this.canvas.height !== Math.round(this.h * d)) {
       this.canvas.width = Math.round(this.w * d);
@@ -615,7 +649,7 @@ export class StarMap {
     } else if (this.route) line(this.route.map(b => b.position), '#a9dcff', 2, [7, 5]);
     const routeNames=new Set(this.routePlan?.legs.filter(l=>l.system===this.system).flatMap(l=>[l.startName,l.endName])||[]);
     const important=b=>b.id===this.selected||this.route?.some(p=>p.id===b.id)||routeNames.has(b.name);
-    const prominent=b=>prominentLocation(b,this.surfaceParent(b),this.span);
+    const prominent=b=>prominentLocation(b,this.surfaceParent(b),this.span)||(b.mapImportance==='primary'||b.kind==='moon')&&this.surfaceParent(b)?.id===this.orbitFocus;
     const priority = b => labelPriority(prominent(b)?b:{...b,mapImportance:'local'},important(b));
     const layer=b=>b.radius>0||b.kind==='star'?0:b.id===this.selected?2:1;
     const sorted = [...visibleBodies].sort((a,b)=>layer(a)-layer(b)||priority(a)-priority(b)||Number(this.markerVisibility.has(b.id))-Number(this.markerVisibility.has(a.id))||a.id.localeCompare(b.id));
@@ -633,9 +667,9 @@ export class StarMap {
       const pinned=important(b),selected=this.selected===b.id;
       const parent = this.surfaceParent(b);
       if (!pinned&&!major&&parent && this.span > parent.radius * 25 && b.kind !== 'moon') continue;
-      if (parent && this.span < parent.radius * 25 && this.occluded(b.position, parent)) continue;
+      if (parent && this.span < parent.radius * 6 && this.occluded(b.position, parent)) continue;
       const container = this.byId.get(b.parent);
-      if(!pinned&&this.span>detailSpan(b,container)*(this.markerVisibility.has(b.id)?1.18:1))continue;
+      if(!pinned&&!major&&this.span>detailSpan(b,container)*(this.markerVisibility.has(b.id)?1.18:1))continue;
       // Do not draw a cloud of diamonds over a planet or at the same station hub.
       if(!major&&b.kind!=='moon'&&!pinned&&!markerFits({x,y},occupied,this.w<500?42:30))continue;
       let r = b.kind === 'star' ? Math.max(6,10*stellarRadius(b)/this.maxStarRadius,stellarRadius(b)*this.scale) : b.radius > 0 ? Math.max(b.kind === 'planet' ? 13 : 7, b.radius * this.scale) : 4;
@@ -643,7 +677,7 @@ export class StarMap {
       let color = b.kind === 'star' ? '#e7ce90' : b.kind === 'gateway' ? '#d9bf88' : b.kind === 'planet' ? '#86c8d0' : '#6b9ca8';
       const detailedModel=b.modelRole!=='symbol'&&this.span<4e8&&(!parent||this.span<parent.radius*12);
       // Share one fixed silhouette per game mesh until a close-up needs camera rotation.
-      const model=b.model&&b.kind!=='gateway'?this.mapModels.get(b.modelRole==='symbol'?{...b,rotation:[1,0,0,0]}:b,detailedModel?this.yaw:0,detailedModel?this.pitch:-.6,detailedModel&&(selected||(b.modelSize||1000)*this.scale>160)?(this.pointers.size?256:Math.min(this.w,this.h)>600?1024:512):160):null;
+      const model=b.model&&b.kind!=='gateway'?this.mapModels.get(b.modelRole==='symbol'?{...b,rotation:[1,0,0,0]}:b,detailedModel?this.yaw:0,detailedModel?this.pitch:-.6,modelResolution(detailedModel?(b.modelSize||1000)*this.scale:12,moving,Math.min(this.w,this.h))):null;
       if(b.kind==='star'){
         drawStar(c,this.starSurfaces,b,x,y,r);
       }else if(b.kind==='gateway'){
@@ -653,11 +687,11 @@ export class StarMap {
         const seed=[...b.id].reduce((sum,char)=>sum+char.charCodeAt(0),0)*.37;
         drawJumpPortal(c,x,y,r,{phase:moving?performance.now()/1000+seed:seed,active,pitch:this.pitch,yaw:this.yaw});portalMoving||=moving;
       }else if(model){
-        r=detailedModel?Math.max(14,Math.min(Math.min(this.w,this.h)*.44/(model.meshExtent||model.meshRadius||.5),(b.modelSize||1000)*this.scale)):selected&&parent&&this.span<parent.radius?28:pinned||major?12:9;
+        r=detailedModel?Math.max(14,Math.min(Math.min(this.w,this.h)*.40/(model.meshExtent||model.meshRadius||.5),(b.modelSize||1000)*this.scale)):selected&&parent&&this.span<parent.radius?28:pinned||major?12:9;
         c.drawImage(model,x-r,y-r,r*2,r*2);
       } else if (b.radius > 0 || b.kind === 'star') {
         const viewport=r>Math.max(this.w,this.h)*2?{width:this.w,height:this.h,x,y,radius:r}:null;
-        const globe = this.globeTextures.get(b, this.yaw, this.pitch, viewport?(this.pointers.size?192:512):r > 150 && !this.pointers.size ? 512 : 256,viewport);
+        const globe = this.globeTextures.get(b, this.yaw, this.pitch, globeResolution(r,moving,Math.min(this.w,this.h),!!viewport),viewport,{moving});
         if (globe) {
           if(viewport)c.drawImage(globe,0,0,this.w,this.h);else c.drawImage(globe, x - r, y - r, r * 2, r * 2);
           c.strokeStyle = '#91e3f04d';

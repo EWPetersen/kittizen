@@ -43,8 +43,14 @@ test('model requests are shared and a failed model keeps the fallback without re
 test('globe preserves the original texture colours and round mask',()=>{const texture={width:8,height:4,data:new Uint8ClampedArray(8*4*4)};for(let i=0;i<32;i++){texture.data[i*4]=255;texture.data[i*4+3]=255;}const image=globePixels(texture,[1,0,0,0],0,0,16);assert.equal(image[3],0);const at=(8*16+8)*4;assert.ok(image[at]>0);assert.equal(image[at+1],0);assert.equal(image[at+2],0);assert.equal(image[at+3],255);});
 test('route fraction never interpolates between different coordinate frames',()=>{const plan={totalDistance:20,legs:[{kind:'quantum',system:'stanton',offset:0,distance:10,start:[0,0,0],end:[10,0,0]},{kind:'jump',system:'stanton',toSystem:'pyro',offset:10,distance:0,start:[10,0,0],end:[10000,0,0]},{kind:'quantum',system:'pyro',offset:10,distance:10,start:[0,0,0],end:[0,10,0]}]};assert.deepEqual(positionOnRoute(plan,.75).position,[0,5,0]);assert.equal(positionOnRoute(plan,.75).system,'pyro');assert.equal(positionOnRoute(plan,NaN),null);});
 test('ordinary drag rotates the globe instead of translating its center',()=>{const {map,events}=fixture();map.focus(catalog.bodies.find(b=>b.name==='microTech'));const center=[...map.center],yaw=map.yaw;events.pointerdown({pointerId:1,button:0,clientX:300,clientY:300});events.pointermove({pointerId:1,clientX:380,clientY:320});events.pointerup({pointerId:1,button:0,clientX:380,clientY:320});assert.notEqual(map.yaw,yaw);assert.deepEqual(map.center,center);});
-test('wheel can enter a system from universe and focus a planet',()=>{const {map,events}=fixture();map.setSystem('universe');map.draw();let hit=map.hits.find(h=>h.body.id==='stanton');events.wheel({deltaY:-1000,clientX:hit.x,clientY:hit.y,preventDefault(){}});assert.equal(map.system,'stanton');map.draw();hit=map.hits.find(h=>h.body?.name==='microTech');events.wheel({deltaY:-300,clientX:hit.x,clientY:hit.y,preventDefault(){}});assert.ok(map.span<1e7);assert.equal(map.selected,hit.body.id);});
-test('double right-click resets each current system and preserves the route',()=>{for(const id of ['stanton','pyro','nyx']){const {map,events}=fixture();map.setSystem(id);const expected={center:[...map.center],span:map.span,yaw:map.yaw,pitch:map.pitch},route={legs:[],systems:[id]};map.routePlan=route;map.center=[1,2,3];map.span=999999;map.yaw=2;map.pitch=1;for(const time of [100,300]){events.pointerdown({pointerId:1,button:2,clientX:100,clientY:100});events.pointerup({pointerId:1,button:2,timeStamp:time,clientX:100,clientY:100});}assert.equal(map.system,id);assert.deepEqual(map.center,expected.center);assert.equal(map.span,expected.span);assert.equal(map.yaw,expected.yaw);assert.equal(map.pitch,expected.pitch);assert.equal(map.routePlan,route);}});
+test('wheel can enter a system from universe and focus a planet',()=>{const {map,events}=fixture();map.setSystem('universe');map.draw();let hit=map.hits.find(h=>h.body.id==='stanton');events.wheel({deltaY:-1000,clientX:hit.x,clientY:hit.y,preventDefault(){}});assert.equal(map.system,'stanton');map.draw();hit=map.hits.find(h=>h.body?.name==='microTech');events.wheel({deltaY:-300,clientX:hit.x,clientY:hit.y,preventDefault(){}});assert.ok(map.span<map.systemSpan);assert.equal(map.view.level,'orbits');assert.equal(map.selected,hit.body.id);});
+test('double right-click steps out one level and preserves the route',()=>{
+ const {map,events}=fixture(),station=catalog.bodies.find(b=>b.name==='Seraphim Station'),route={legs:[],systems:['stanton']};map.routePlan=route;map.focus(station);
+ let time=100;const back=()=>{for(const stamp of [time,time+180]){events.pointerdown({pointerId:1,button:2,clientX:100,clientY:100});events.pointerup({pointerId:1,button:2,timeStamp:stamp,clientX:100,clientY:100});}time+=800;};
+ for(const expected of ['body','orbits','system','universe']){back();assert.equal(map.view.level,expected);assert.equal(map.routePlan,route);}
+ back();assert.equal(map.view.level,'universe');
+});
+
 test('right-drag does not accidentally trigger a reset',()=>{const {map,events}=fixture();const before=[...map.center];for(const time of [100,300]){events.pointerdown({pointerId:1,button:2,clientX:100,clientY:100});events.pointermove({pointerId:1,clientX:160,clientY:130});events.pointerup({pointerId:1,button:2,timeStamp:time,clientX:160,clientY:130});}assert.notDeepEqual(map.center,before);assert.equal(map.rightTap,null);});
 test('focusing a POI faces the actual location and hides the opposite hemisphere',()=>{const {map}=fixture();const poi=catalog.bodies.find(b=>b.name==='New Babbage'),parent=catalog.bodies.find(b=>b.id===poi.parent);map.focus(poi);map.draw();const p=map.project(poi.position);assert.ok(Math.abs(p[0]-map.w/2)<.01&&Math.abs(p[1]-map.h/2)<.01);assert.equal(map.occluded(poi.position,parent),false);const opposite=poi.position.map((v,i)=>parent.position[i]*2-v);assert.equal(map.occluded(opposite,parent),true);});
 test('activity overlay allows right-drag panning in 2D and 3D',()=>{for(const pitch of [-.72,-Math.PI/2]){const {map,events}=fixture();map.pitch=pitch;map.draw();const point=[...map.center],before=map.project(point),yaw=map.yaw;events.pointerdown({pointerId:1,button:2,clientX:100,clientY:100});events.pointermove({pointerId:1,buttons:2,clientX:150,clientY:120});events.pointerup({pointerId:1,button:2,clientX:150,clientY:120});const after=map.project(point);assert.ok(Math.abs(after[0]-before[0]-50)<.001);assert.ok(Math.abs(after[1]-before[1]-20)<.001);assert.equal(map.yaw,yaw);assert.equal(map.pitch,pitch);assert.equal(map.rightTap,null);}});
@@ -56,7 +62,7 @@ test('every planet and moon has six selectable, focusable OM markers',()=>{
  }
 });
 test('focusing a moon centers the moon rather than its planet',()=>{
- const {map}=fixture();for(const body of catalog.bodies.filter(b=>b.kind==='moon')){map.setSystem(body.system);map.focus(body);assert.deepEqual(map.center,body.position);assert.equal(map.span,body.radius*1.6);}
+ const {map}=fixture();for(const body of catalog.bodies.filter(b=>b.kind==='moon')){map.setSystem(body.system);map.focus(body);assert.deepEqual(map.center,body.position);assert.equal(map.span,body.radius*2.8);}
 });
 test('labels remain bounded and non-overlapping over zoom and rotation sweeps',()=>{
  const {map}=fixture();for(const system of ['stanton','pyro','nyx']){
@@ -128,6 +134,37 @@ test('phone system framing includes distant Nyx service stations and keeps core 
  }
 });
 
+test('planet selection opens local moons before a fitted body close-up',()=>{
+ const {map}=fixture();for(const planet of catalog.bodies.filter(b=>b.kind==='planet')){
+  map.setSystem(planet.system);map.focus(planet);map.draw();assert.equal(map.view.level,'orbits',planet.name);
+  for(const moon of catalog.bodies.filter(b=>b.parent===planet.id&&b.kind==='moon')){
+   const [x,y]=map.project(moon.position);assert.ok(x>0&&x<map.w&&y>0&&y<map.h,moon.name+' in orbital frame');assert.ok(map.hits.some(h=>h.body?.id===moon.id),moon.name+' marker');
+  }
+  map.focus(planet);map.draw();assert.equal(map.view.level,'body');assert.ok(planet.radius*map.scale*2<Math.min(map.w,map.h)*.8);
+ }
+});
+
+test('Klescher uses a compact native surface component anchored to Aberdeen',()=>{
+ const b=catalog.bodies.find(b=>b.name==='Klescher Rehabilitation Facility'),{map}=fixture();assert.equal(map.byId.get(b.parent).name,'Aberdeen');assert.equal(b.modelRole,'surface');assert.equal(b.modelStyle,'prison');assert.ok(b.modelSource.includes('prison_structure_hole_a'));
+ const mesh=JSON.parse(fs.readFileSync(new URL('../public/'+b.model,import.meta.url),'utf8'));assert.ok(mesh.vertices.length<2000&&mesh.triangles.length<1500);
+ map.focus(b);map.draw();assert.deepEqual(map.center,b.position);assert.ok(map.hits.some(h=>h.body?.id===b.id));
+ map.stepOut();assert.equal(map.view.level,'body');assert.equal(map.selected,b.parent);map.stepOut();assert.equal(map.view.level,'orbits');assert.equal(map.byId.get(map.selected).name,'Hurston');
+});
+
+test('animated globe draws use motion resolution and refine after settling',()=>{
+ const {map}=fixture(),body=catalog.bodies.find(b=>b.name==='Crusader');globalThis.matchMedia=()=>({matches:false});const sizes=[];map.globeTextures.get=(b,y,p,size)=>{sizes.push(size);return null;};
+ try{map.focus(body,{close:true});const move=map.transition;map.advanceCamera(move.time+move.duration*.9);map.draw();assert.ok(sizes.every(size=>size<=144));sizes.length=0;map.advanceCamera(move.time+move.duration);map.draw();assert.ok(sizes.includes(512));}finally{delete globalThis.matchMedia;}
+});
+
+test('searching another planet from a close POI starts with its local orbits',()=>{
+ const {map}=fixture();map.focus(catalog.bodies.find(b=>b.name==='Klescher Rehabilitation Facility'));map.focus(catalog.bodies.find(b=>b.name==='microTech'));assert.equal(map.view.level,'orbits');
+});
+
+test('rapid Back during a focus animation cannot restore the abandoned close-up',()=>{
+ const {map}=fixture(),station=catalog.bodies.find(b=>b.name==='Seraphim Station');globalThis.matchMedia=()=>({matches:false});
+ try{map.focus(station);map.stepOut();map.stepOut();const move=map.transition;map.advanceCamera(move.time+move.duration);assert.equal(map.view.level,'orbits');assert.equal(map.byId.get(map.selected).name,'Crusader');assert.equal(map.span,map.localSpan(map.byId.get(map.selected)));}finally{delete globalThis.matchMedia;}
+});
+
 test('a searched station remains visible at overview scale and local detail is spaced',()=>{
  const {map}=fixture();map.setSystem('pyro');
  const station=catalog.bodies.find(b=>b.system==='pyro'&&b.kind==='station'&&catalog.bodies.find(p=>p.id===b.parent)?.kind==='lagrange');
@@ -141,7 +178,7 @@ test('a searched station remains visible at overview scale and local detail is s
 test('a game navigation symbol does not turn a surface POI into a station close-up',()=>{
  const {map}=fixture();const poi=catalog.bodies.find(b=>b.modelRole==='symbol'&&map.surfaceParent(b));
  assert.ok(poi);const parent=map.surfaceParent(poi);map.setSystem(poi.system);map.focus(poi);
- assert.equal(map.span,Math.max(20000,Math.min(2e6,parent.radius*.08)));assert.deepEqual(map.center,poi.position);
+ assert.equal(map.span,Math.max(25000,Math.min(2.5e6,parent.radius*.1)));assert.deepEqual(map.center,poi.position);
 });
 
 test('all extracted stars focus to a close-up while retaining their game material',()=>{
@@ -170,7 +207,7 @@ test('orbital station focus retains its planet and manual close-ups never hide i
  const {map}=fixture();map.mapModels.get=()=>({});for(const name of ['Seraphim Station','Port Tressler','Everus Harbor','Baijini Point']){
   const station=catalog.bodies.find(b=>b.name===name),parent=map.surfaceParent(station);
   map.setSystem(station.system);map.focus(station);map.draw();
-  assert.equal(map.span,Math.max(500,station.modelSize*.75),name);assert.deepEqual(map.center,station.position);assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' parent');
+  assert.equal(map.span,Math.max(600,station.modelSize*.95),name);assert.deepEqual(map.center,station.position);assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' parent');
   assert.ok(map.hits.find(h=>h.body?.id===station.id&&!h.box).r>Math.min(map.w,map.h)*.3,name+' large foreground model');
   assert.ok(map.hits.some(h=>h.body?.id===station.id&&!h.box),name+' station');
   assert.ok(!map.occluded(station.position,parent),name+' near side');
@@ -189,7 +226,7 @@ test('station silhouettes fill most of desktop and phone frames without clipping
   const radius=Math.max(...points.map(p=>Math.hypot(p[0],p[1])))*.875,extent=Math.max(...points.flatMap(p=>[Math.abs(p[0]),Math.abs(p[1])]))*.875;
   map.mapModels.get=()=>({meshRadius:radius,meshExtent:extent});map.draw();
   const hit=map.hits.find(h=>!h.box&&h.body?.id===station.id),spriteR=(hit.r-6)/radius,fill=spriteR*extent*2/Math.min(width,height);
-  assert.ok(fill>=.8&&fill<=.89,name+' framed at '+fill);
+  assert.ok(fill>=.72&&fill<=.81,name+' framed at '+fill);
  }
 });
 

@@ -23,17 +23,17 @@ export function starPixels(color,size=256,texture=null,tile=1){
 }
 export class StarSurfaces{
  constructor(invalidate=()=>{}){this.cache=new Map();this.sources=new Map();this.invalidate=invalidate;}
- get(body){
+ get(body,size=128){
   const a=body.starAppearance||{},color=(a.color||[1,.49,.17]).map((v,k)=>v*(a.lightColor?.[k]??1));
   if(a.texture&&!this.sources.has(a.texture)){
    this.sources.set(a.texture,null);const image=new Image();
    image.onload=()=>{const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;const c=canvas.getContext('2d',{willReadFrequently:true});c.drawImage(image,0,0);this.sources.set(a.texture,c.getImageData(0,0,image.width,image.height));this.invalidate();};
    image.onerror=()=>this.invalidate();image.src=a.texture;
   }
-  const texture=this.sources.get(a.texture),key=color.join(':')+':'+(a.texture||'')+':'+!!texture;if(this.cache.has(key))return this.cache.get(key);
+  const texture=this.sources.get(a.texture),key=color.join(':')+':'+(a.texture||'')+':'+!!texture+':'+size;if(this.cache.has(key))return this.cache.get(key);
   if(!document.createElement)return null;
-  const canvas=document.createElement('canvas');canvas.width=canvas.height=256;const c=canvas.getContext('2d');
-  c.putImageData(new ImageData(starPixels(color,256,texture,a.textureTile||1),256,256),0,0);this.cache.set(key,canvas);return canvas;
+  const canvas=document.createElement('canvas');canvas.width=canvas.height=size;const c=canvas.getContext('2d');
+  c.putImageData(new ImageData(starPixels(color,size,texture,a.textureTile||1),size,size),0,0);this.cache.set(key,canvas);if(this.cache.size>12)this.cache.delete(this.cache.keys().next().value);return canvas;
  }
 }
 export function starColor(body,alpha,light=false){const color=(light?body?.starAppearance?.lightColor:null)||body?.starAppearance?.color||[1,.49,.17];return `rgba(${color.map(x=>Math.round(x*255)).join(',')},${alpha})`;}
@@ -41,7 +41,7 @@ export function drawStar(c,surfaces,body,x,y,r){
  const glow=c.createRadialGradient(x,y,r*.7,x,y,r*3.2),strength=.35+(body.starAppearance?.glow||0)+Math.min(.4,(body.starAppearance?.surfaceIntensity||0)/75);
  glow.addColorStop(0,starColor(body,Math.min(.8,strength)));glow.addColorStop(.34,starColor(body,.18));glow.addColorStop(1,starColor(body,0));
  c.fillStyle=glow;c.fillRect(x-r*3.2,y-r*3.2,r*6.4,r*6.4);
- const surface=surfaces.get(body);
+ const surface=surfaces.get(body,r<18?64:r<100?128:256);
  if(surface)c.drawImage(surface,x-r,y-r,r*2,r*2);
  else{c.fillStyle='#ffe2ad';c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();}
 }

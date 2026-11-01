@@ -279,7 +279,7 @@ function selectBody(b, focus = true) {
   map.selected = b.id;
   if (focus) map.focus(b);
   $('#map-name').textContent = b.name;
-  $('#map-subtitle').textContent = (b.modelStyle==='asteroid'?'ASTEROID BASE':b.kind.toUpperCase()) + ' / ' + (b.system || 'stanton').toUpperCase();
+  $('#map-subtitle').textContent = (map.view?.level==='orbits'?'LOCAL ORBITS':b.modelStyle==='asteroid'?'ASTEROID BASE':b.modelStyle==='prison'?'REHABILITATION FACILITY':b.kind.toUpperCase()) + ' / ' + (b.system || 'stanton').toUpperCase();
   let root = $('#selection');
   const parent = bodies.find(p => p.id === b.parent);
   root.replaceChildren(el('h3', b.name), el('small', b.kind.toUpperCase() + (parent ? ' · ' + parent.name : '')));
@@ -310,7 +310,7 @@ function selectBody(b, focus = true) {
   if (b.radius > 0) {
     const views = el('div', undefined, 'inline');
     for (const [label, action] of [
-        ['Surface view', () => map.focus(b)],
+        ['Surface view', () => map.focus(b,{close:true})],
         ['Orbital view', () => map.focusSystem(b)]
       ]) {
       const button = el('button', label);
@@ -580,6 +580,8 @@ async function start() {
       position: [0, 0, 0]
     }];
     map.onSystemChanged = showSystem;
+    map.onViewChanged=b=>selectBody(b,false);
+    $('#back-view').onclick=()=>map.stepOut();
     $('#system-picker').replaceChildren(option('universe', 'Universe · all systems'), ...map.systems.map(s => option(s.id, s.name)));
     map.onJump=jumpToSystem;
     $('#system-picker').onchange = () => map.setSystem($('#system-picker').value);

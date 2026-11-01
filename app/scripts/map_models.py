@@ -31,7 +31,19 @@ def compact_gltf(path):
     center=[(min(p[i] for p in vertices)+max(p[i] for p in vertices))/2 for i in range(3)]
     radius=max(math.dist(p,center) for p in vertices)
     if not radius:raise ValueError('Empty mesh bounds')
-    return {'vertices':[[round((p[i]-center[i])/radius,5) for i in range(3)] for p in vertices],'triangles':triangles}
+    normalized=[tuple(round((p[i]-center[i])/radius,5) for i in range(3)) for p in vertices]
+    # The web renderer does not use UVs/normals. Material seams often duplicate
+    # entire position buffers; weld equal positions and discard unused vertices.
+    unique={};compact=[];faces=[]
+    for face in triangles:
+        mapped=[]
+        for index in face:
+            point=normalized[index]
+            if point not in unique:unique[point]=len(compact);compact.append(list(point))
+            mapped.append(unique[point])
+        if len(set(mapped))==3:faces.append(mapped)
+    if not faces:raise ValueError('Empty mesh after position compaction')
+    return {'vertices':compact,'triangles':faces}
 
 def extract_models(archive,catalog,metadata,root):
     converter=root/'.devtools/cgf-converter-v2.0.0.exe'

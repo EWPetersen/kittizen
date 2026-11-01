@@ -34,7 +34,7 @@ test('belt particles follow extracted radial bounds and preserve centreline-only
 });
 test('camera origin retains local metre detail far from system origin',()=>{let {map}=fixture();map.center=[4e10,3e10,0];map.span=2e6;map.draw();let a=map.project(map.center),b=map.project([4e10+1000,3e10,0]);assert.equal(a[0],195);assert.ok(Math.abs(b[0]-a[0])>.1);});
 test('zoom cannot leave supported extent',()=>{let {map}=fixture();map.zoom(1e30);assert.equal(map.span,500);map.zoom(1e-30);assert.equal(map.span,3e12);});
-test('body selection and planet focus',()=>{let f=fixture(),p=f.map.project(f.bodies[0].position);f.map.click({clientX:p[0],clientY:p[1]});assert.equal(f.selected.id,'a');f.map.focus(f.bodies[0]);assert.deepEqual(f.map.center,f.bodies[0].position);assert.equal(f.map.span,1.6e6);});
+test('body selection and planet focus',()=>{let f=fixture(),p=f.map.project(f.bodies[0].position);f.map.click({clientX:p[0],clientY:p[1]});assert.equal(f.selected.id,'a');f.map.focus(f.bodies[0]);assert.deepEqual(f.map.center,f.bodies[0].position);assert.equal(f.map.span,8e6);f.map.focus(f.bodies[0]);assert.equal(f.map.span,2.8e6);});
 test('route fit and tapping the middle returns halfway placement',()=>{let f=fixture();f.map.fitRoute(...f.bodies);f.map.draw();f.map.click({clientX:195,clientY:350});assert.ok(Math.abs(f.routeHit-.5)<1e-12);});
 test('shift-drag pans without selecting a body',()=>{let f=fixture();f.events.pointerdown({pointerId:1,clientX:100,clientY:100});f.events.pointermove({pointerId:1,clientX:150,clientY:110,shiftKey:true});f.events.pointerup({pointerId:1,clientX:150,clientY:110});assert.notDeepEqual(f.map.center,[0,0,0]);assert.equal(f.selected,null);assert.equal(f.map.pointers.size,0);});
 test('pinch zoom, cancellation, orbit pitch clamp',()=>{let f=fixture();f.events.pointerdown({pointerId:1,clientX:100,clientY:100});f.events.pointerdown({pointerId:2,clientX:200,clientY:100});let old=f.map.span;f.events.pointermove({pointerId:2,clientX:250,clientY:100});assert.ok(f.map.span<old);f.events.pointercancel({pointerId:2});f.events.pointermove({pointerId:1,clientX:110,clientY:10000,shiftKey:false});assert.equal(f.map.pitch,Math.PI/2-.01);f.events.pointercancel({pointerId:1});assert.equal(f.map.pointers.size,0);});
@@ -42,11 +42,11 @@ test('selected label renders even in crowded system view and reports draw',()=>{
 
 test('focus animates without jumping, settles exactly and stops rendering',()=>{
  const {map,bodies}=fixture();globalThis.matchMedia=()=>({matches:false});
- const before=map.camera();map.focus(bodies[0]);assert.deepEqual(map.center,before.center);assert.equal(map.span,before.span);
- const move=map.transition;map.advanceCamera(move.time+move.duration/2);assert.ok(map.span<before.span&&map.span>1.6e6);assert.ok(map.center[0]>0&&map.center[0]<bodies[0].position[0]);
- map.advanceCamera(move.time+move.duration);assert.equal(map.transition,null);assert.deepEqual(map.center,bodies[0].position);assert.equal(map.span,1.6e6);
+ const before=map.camera();map.focus(bodies[0],{close:true});assert.deepEqual(map.center,before.center);assert.equal(map.span,before.span);
+ const move=map.transition;map.advanceCamera(move.time+move.duration/2);assert.ok(map.span<before.span&&map.span>2.8e6);assert.ok(map.center[0]>0&&map.center[0]<bodies[0].position[0]);
+ map.advanceCamera(move.time+move.duration);assert.equal(map.transition,null);assert.deepEqual(map.center,bodies[0].position);assert.equal(map.span,2.8e6);
  map.focus(bodies[1]);map.pan(10,0);assert.equal(map.transition,null);
- globalThis.matchMedia=()=>({matches:true});map.focus(bodies[0]);assert.equal(map.transition,null);delete globalThis.matchMedia;
+ globalThis.matchMedia=()=>({matches:true});map.focus(bodies[0],{close:true});assert.equal(map.transition,null);delete globalThis.matchMedia;
 });
 test('labels prioritize selection, stay within bounds and retain anchors during small movement',()=>{
  const candidates=Array.from({length:45},(_,i)=>({id:String(i),x:150+(i%5)*10,y:200+Math.floor(i/5)*10,r:4,width:90,priority:i===44?0:4}));
@@ -64,9 +64,9 @@ test('a selected POI label clears its activity marker rather than disappearing',
  const item={id:'poi',x:195,y:350,r:4,width:90,priority:3,selected:true};const result=layoutLabels([item],390,700,new Map(),[{x:178,y:333,w:34,h:34}]);assert.equal(result.placed.length,1);assert.equal(result.placed[0].item.id,'poi');
 });
 test('zoom focus converges without throwing the target around and repeated focus keeps its timing',()=>{
- const {map,bodies}=fixture();globalThis.matchMedia=()=>({matches:false});map.focus(bodies[0]);const move=map.transition;let last=Infinity;
+ const {map,bodies}=fixture();globalThis.matchMedia=()=>({matches:false});map.focus(bodies[0],{close:true});const move=map.transition;let last=Infinity;
  for(const fraction of [0,.1,.25,.5,.75,.9]){map.advanceCamera(move.time+move.duration*fraction);map.draw();const point=map.project(bodies[0].position);const distance=Math.hypot(point[0]-map.w/2,point[1]-map.h/2);assert.ok(distance<=last+.0001);last=distance;}
- map.focus(bodies[0]);assert.equal(map.transition,move);delete globalThis.matchMedia;
+ map.focus(bodies[0],{close:true});assert.equal(map.transition,move);delete globalThis.matchMedia;
 });
 test('double click keeps a focus animation for each celestial object type',()=>{
  for(const kind of ['planet','moon','star','gateway','om']){

@@ -91,4 +91,21 @@ def extract_environment(archive,catalog,root):
     levski.update(model=relative,modelSource=ROCK+'.cgf',modelSize=size,modelRole='structure',modelStyle='asteroid',modelNote='Native Levski rock component with schematic dock details; not a full facility reconstruction.')
     for body in catalog['bodies']:
         if body['name']=='Grim HEX':body['modelStyle']='asteroid'
-    return [relative]
+    paths=[relative]
+    prison=next(b for b in catalog['bodies'] if b['navigationRecord']=='b9b1a547-c415-44cb-826b-6c28cbd0c0bb')
+    prison_source='data/objectcontainers/pu/loc/mod/prison/auto/ext/prison_auto_ext_borehole_a.socpak'
+    component='objects/buildingsets/human/lowtech/bravo/ext/prisons/auto/prison_structure_hole_a'
+    with zipfile.ZipFile(io.BytesIO(archive.read(prison_source))) as z:
+        info=z.getinfo('prison_auto_ext_borehole_a.soc')
+        if info.file_size>8*1024*1024 or component.encode()+b'.cgf' not in z.read(info):raise ValueError('Klescher exterior component changed')
+    import re
+    stem=component+'_lod3';pattern='(?i)'+re.escape(stem).replace('/',r'[\\/]')+r'\.(?:cgf|cgfm)$'
+    subprocess.run([str(tool),'p4k','extract','--p4k',str(archive.path),'-o',str(output),'--regex',pattern,'--max-threads','2'],check=True,capture_output=True,timeout=60)
+    subprocess.run([str(converter),str(data/(stem+'.cgf')),'-objectdir',str(data),'-gltf','-notex','-out',str(converted)],check=True,capture_output=True,timeout=60)
+    gltf=converted/(Path(stem).name+'.gltf');mesh=compact_gltf(gltf);mesh.update(source=stem+'.cgf',converter='Cryengine-Converter v2.0.0')
+    raw=json.dumps(mesh,separators=(',',':'));digest=hashlib.sha256(raw.encode()).hexdigest()[:12];relative='game-assets/models/klescher-exterior-'+digest+'.json'
+    (root/'public'/relative).write_text(raw)
+    positions=[a for a in json.loads(gltf.read_text())['accessors'] if a.get('type')=='VEC3' and 'min' in a and 'max' in a]
+    size=max(max(a['max'][i]-a['min'][i] for i in range(3)) for a in positions)
+    prison.update(model=relative,modelSource=stem+'.cgf',modelSize=size,modelRole='surface',modelStyle='prison',modelNote='Native Klescher exterior borehole component; not the underground prison layout.')
+    paths.append(relative);return paths
