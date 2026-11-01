@@ -11,6 +11,7 @@ const $ = s => document.querySelector(s),
     if (cls) n.className = cls;
     return n;
   };
+if(new URLSearchParams(location.search).get('workspace')==='v3'){const link=$('.workspace-link');if(link){link.href='/v3.html';link.setAttribute('aria-label','Open V3 pilot workspace');link.firstChild.textContent='V3';}}
 let catalog, bodies, map, catalogRevision = null,
   user = null,
   reports = [],

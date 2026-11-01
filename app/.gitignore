@@ -19,4 +19,5 @@ preview*.jpg
 
 public/catalog.json
 public/v2-catalog.json
+public/v3-data.json
 .vercel

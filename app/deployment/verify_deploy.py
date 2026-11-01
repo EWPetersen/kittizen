@@ -34,5 +34,11 @@ def verify(root=ROOT):
         for item in index['items']:
             if not (base/('detail-'+item['id'][:2]+'.json')).is_file():raise ValueError('Missing V2 detail bundle')
             if item.get('image') and not (base/item['image']).is_file():raise ValueError('Missing V2 image')
+    if (root/'public/v3-data.json').exists():
+        pointer=json.loads((root/'public/v3-data.json').read_text())
+        path=(root/'public'/pointer['url'].lstrip('/')).resolve()
+        if not path.is_relative_to((root/'public/game-assets/v3').resolve()):raise ValueError('Invalid V3 data URL')
+        performance=json.loads(path.read_text())
+        if performance['build']!=pointer['build'] or performance['catalogBase']!=pointer['catalogBase']:raise ValueError('Mismatched V3 release')
     return len(manifest)
 if __name__=='__main__': print('Verified',verify(),'deployment files; no local database or secrets included.')

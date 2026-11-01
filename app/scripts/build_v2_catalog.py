@@ -148,6 +148,9 @@ def publish(raw,assets,signature):
     destination=ROOT/'public/game-assets/v2'/stamp;destination.mkdir(parents=True,exist_ok=True)
     index=normalize(raw,assets,localization,destination,build)
     if len(index['items'])<500:raise ValueError('Catalogue incomplete; previous V2 retained')
+    if (ROOT/'public/v3-data.json').exists():
+        from build_v3_data import build as build_v3
+        build_v3(raw,destination)
     pointer=ROOT/'public/v2-catalog.json';temp=pointer.with_suffix('.tmp');temp.write_text(json.dumps(dict(base=f'/game-assets/v2/{stamp}/',build=build,counts=index['counts'])));temp.replace(pointer)
     (ROOT/'storage/v2-state.json').write_text(json.dumps(dict(signature=signature,counts=index['counts'])))
     print('Published V2:',index['counts'])
