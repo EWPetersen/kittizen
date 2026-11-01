@@ -7,6 +7,7 @@ import {StarSurfaces,stellarRadius,stellarFocusSpan,drawStar,drawOrbitalLight,st
 import {PORTAL_SPAN,portalRadius,drawJumpPortal,animatePortal} from './portals.js';
 import {drawBelts} from './belts.js';
 import {globeResolution,modelResolution} from './render-budget.js';
+export const LOCATION_FOCUS_PULLBACK=3.5;
 // Stable candidate order and remembered anchor choices reduce label swapping while orbiting.
 export function labelPriority(body,selected=false) {
   return body.kind==='planet'||body.kind==='body'?0:body.kind==='gateway'?1:body.kind==='star'?2:body.mapImportance==='primary'?3:body.kind==='moon'?4:selected?5:body.kind==='lagrange'?6:body.kind==='om'?7:8;
@@ -145,7 +146,7 @@ export class StarMap {
       }
       else {
         const body=this.hits.find(h=>h.body&&h.body.kind!=='system'&&(h.box?x>=h.box.x&&x<=h.box.x+h.box.w&&y>=h.box.y&&y<=h.box.y+h.box.h:Math.hypot(h.x-x,h.y-y)<h.r))||fallback;
-        if(body)this.onSelect(body.body);
+        if(body)this.onSelect(this.navigationTarget(body.body));
         else if(!this.transition)this.zoom(1.8);
       }
     });
@@ -231,8 +232,8 @@ export class StarMap {
     if (this.system !== 'universe' && f > 1 && anchor) {
       const body = this.hits.find(h => h.body?.radius > 0 && this.span > h.body.radius * 40 && Math.hypot(h.x - anchor[0], h.y - anchor[1]) < Math.max(22, h.r));
       if (body) {
-        this.focus(body.body);
-        this.onSelect(body.body);
+        const target=this.navigationTarget(body.body);this.focus(target);
+        this.onSelect(target,false);
         this.zoom(f);
         return;
       }
@@ -294,7 +295,8 @@ export class StarMap {
   }
   focus(b,{close=false}={}) {
     const active=this.byId.get(this.view?.bodyId),localContext=this.view?.bodyId===b.id||this.orbitFocus===b.id||this.view?.level==='location'&&active&&this.surfaceParent(active)?.id===b.id;
-    if(b.kind==='planet'&&!close&&(!localContext||this.span>this.localSpan(b)*1.25)){this.focusSystem(b);return;}
+    const inParentOrbits=!!this.orbitFocus&&this.orbitFocus===b.parent;
+    if(b.kind==='planet'&&!close&&!inParentOrbits&&(!localContext||this.span>this.localSpan(b)*1.25)){this.focusSystem(b);return;}
     const start=this.camera();
     this.orbitFocus=null;this.view={level:b.radius>0||b.kind==='star'?'body':'location',bodyId:b.id};
     this.center = [...b.position];
@@ -334,6 +336,7 @@ export class StarMap {
         target.pitch-=Math.asin(Math.min(.9999,parent.radius/Math.max(1,distance)));
       }
     }
+    if(!b.radius&&!['star','gateway','om'].includes(b.kind))target.span*=LOCATION_FOCUS_PULLBACK;
     Object.assign(this,start);this.flyTo(target);
   }
   focusReport(report) {
@@ -389,7 +392,7 @@ export class StarMap {
     if(level==='universe')return;
     if(level==='location'&&body){const parent=this.surfaceParent(body);if(parent){this.focus(parent,{close:true});this.onViewChanged?.(parent);return;}}
     if(level==='body'&&body&&body.kind!=='star'){
-      const parent=body.kind==='moon'?this.surfaceParent(body):body;
+      const container=this.byId.get(body.parent),parent=container?.kind==='planet'?container:body.kind==='moon'?this.surfaceParent(body):body;
       if(parent){this.focusSystem(parent);this.onViewChanged?.(parent);return;}
     }
     if(level==='orbits'&&body?.kind==='moon'){
@@ -397,6 +400,12 @@ export class StarMap {
     }
     if(level==='system'){this.setSystem('universe');return;}
     this.home();this.onSystemChanged?.(this.system);
+  }
+  navigationTarget(body){
+    if(this.view?.level!=='system'||body.kind!=='planet')return body;
+    const seen=new Set();let target=body;
+    while(!seen.has(target.id)){seen.add(target.id);const parent=this.byId.get(target.parent);if(parent?.kind!=='planet')break;target=parent;}
+    return target;
   }
   fitRoute(a, b) {
     this.route = [a, b];
@@ -440,7 +449,7 @@ export class StarMap {
     let hit = this.hits.filter(h => h.box ? x>=h.box.x&&x<=h.box.x+h.box.w&&y>=h.box.y&&y<=h.box.y+h.box.h : Math.hypot(h.x - x, h.y - y) < h.r).sort((a, b) => (a.box?-1:0)-(b.box?-1:0)||Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
     if (hit) {
       if (hit.body?.kind === 'system') this.setSystem(hit.body.id);
-      else if (hit.body) {this.lastSelection={body:hit.body,x,y,time:e.timeStamp??performance.now()};this.onSelect(hit.body);}
+      else if (hit.body) {const target=this.navigationTarget(hit.body);this.lastSelection={body:target,x,y,time:e.timeStamp??performance.now()};this.onSelect(target);}
       else this.onRoute(hit.report.route?.fraction ?? .5, hit.report);
       return;
     }
@@ -650,7 +659,7 @@ export class StarMap {
     const routeNames=new Set(this.routePlan?.legs.filter(l=>l.system===this.system).flatMap(l=>[l.startName,l.endName])||[]);
     const important=b=>b.id===this.selected||this.route?.some(p=>p.id===b.id)||routeNames.has(b.name);
     const prominent=b=>prominentLocation(b,this.surfaceParent(b),this.span)||(b.mapImportance==='primary'||b.kind==='moon')&&this.surfaceParent(b)?.id===this.orbitFocus;
-    const priority = b => labelPriority(prominent(b)?b:{...b,mapImportance:'local'},important(b));
+    const priority = b => b.kind==='planet'&&this.byId.get(b.parent)?.kind==='planet'?4:labelPriority(prominent(b)?b:{...b,mapImportance:'local'},important(b));
     const layer=b=>b.radius>0||b.kind==='star'?0:b.id===this.selected?2:1;
     const sorted = [...visibleBodies].sort((a,b)=>layer(a)-layer(b)||priority(a)-priority(b)||Number(this.markerVisibility.has(b.id))-Number(this.markerVisibility.has(a.id))||a.id.localeCompare(b.id));
     clearTimeout(this.portalTimer);this.portalTimer=null;
@@ -662,6 +671,10 @@ export class StarMap {
       // The game hides occupied Lagrange anchors in favour of their stations.
       // At system scale use the short anchor label, then reveal the station locally.
       if (b.hidden && !(b.kind==='lagrange'&&this.span>3e10)) continue;
+      if(b.kind==='planet'&&b.id!==this.selected){
+        const group=this.byId.get(b.parent);
+        if(group?.kind==='planet'){const [gx,gy]=this.project(group.position);if(Math.hypot(x-gx,y-gy)<Math.max(32,(group.radius+b.radius)*this.scale+12))continue;}
+      }
       if (b.category === 'auxiliary' && this.selected !== b.id) continue;
       const major = prominent(b);
       const pinned=important(b),selected=this.selected===b.id;

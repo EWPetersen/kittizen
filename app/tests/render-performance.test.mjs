@@ -51,4 +51,5 @@ test('decoded textures and model rasters have byte budgets with least-recent evi
 test('moving and overview assets stay small while idle close-ups retain detail',()=>{
  assert.ok(globeResolution(800,true,900)<=144);assert.ok(globeResolution(800,true,900,true)<=144);assert.ok(globeResolution(13,false,900)<=64);
  assert.ok(globeResolution(800,false,900)>=384);assert.ok(modelResolution(800,true,900)<=192);assert.ok(modelResolution(800,false,900)>=512);
+ assert.ok(modelResolution(100,false,900)<=256,'small models do not allocate large close-up rasters');
 });

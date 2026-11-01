@@ -11,4 +11,4 @@ export function globeResolution(radius,moving,viewportWidth,viewport=false){
   if(radius<20)return 48;if(radius<60)return 96;
   return moving?144:radius>150?(viewportWidth<600?384:512):192;
 }
-export function modelResolution(projectedSize,moving,viewportWidth){return projectedSize<30?128:moving?160:viewportWidth<600?384:768;}
+export function modelResolution(projectedSize,moving,viewportWidth){return projectedSize<30?128:moving?160:projectedSize<180?256:projectedSize<360?384:viewportWidth<600?384:768;}

@@ -145,6 +145,22 @@ def ensure_presence_schema():
         db.execute('REVOKE ALL ON presence FROM PUBLIC')
 
 
+def active_shards(db,now):
+    """Public aggregate only: never return viewer/account identifiers."""
+    valid_systems={s['id'] for s in CATALOG['systems']};groups={}
+    for row in db.execute('SELECT shard,system,COUNT(*) AS count FROM presence WHERE seen>=? AND shard IS NOT NULL GROUP BY shard,system',(now-45,)):
+        region_shard,system,count=row['shard'],row['system'],row['count']
+        if not re.fullmatch(r'(US|EU|AUS|ASIA)-[0-9]{3}',region_shard or '') or system not in valid_systems|{'universe'}:continue
+        entry=groups.setdefault(region_shard,dict(shard=region_shard,count=0,systems={}))
+        entry['count']+=count;entry['systems'][system]=count
+    result=[]
+    for entry in groups.values():
+        choices=sorted(((system,count) for system,count in entry.pop('systems').items() if system!='universe'),key=lambda pair:(-pair[1],pair[0]))
+        entry['system']=choices[0][0] if choices else CATALOG['systems'][0]['id'];result.append(entry)
+    result.sort(key=lambda entry:(-entry['count'],entry['shard']))
+    return result[:50],len(result)
+
+
 @lru_cache(maxsize=1)
 def ensure_workspace_schema():
     if not os.environ.get('KITTIZEN_DATABASE_URL'):return
@@ -491,7 +507,10 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute('INSERT INTO presence VALUES(?,?,?,?) ON CONFLICT(viewer) DO UPDATE SET shard=excluded.shard,system=excluded.system,seen=excluded.seen',(viewer,current,system,now))
                     total=db.execute('SELECT COUNT(*) FROM presence').fetchone()[0]
                     count=total if system=='universe' else db.execute('SELECT COUNT(*) FROM presence WHERE shard=? AND system=?',(current,system)).fetchone()[0] if current else 0
-                    return self.reply(dict(total=total,count=count),cookie=f'viewer={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400'+('; Secure' if os.environ.get('KITTIZEN_SECURE_COOKIE')=='1' else ''))
+                    response=dict(total=total,count=count)
+                    if d.get('includeShards') is True:
+                        response['shards'],response['activeShardCount']=active_shards(db,now)
+                    return self.reply(response,cookie=f'viewer={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400'+('; Secure' if os.environ.get('KITTIZEN_SECURE_COOKIE')=='1' else ''))
                 if path == "/api/google":
                     if not GOOGLE_CLIENT_ID:
                         raise ValueError("Google sign-in is not configured yet")

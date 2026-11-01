@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {StarMap} from '../public/map.js';
+import {StarMap,LOCATION_FOCUS_PULLBACK} from '../public/map.js';
 import {globePixels,inverseRotate} from '../public/sphere.js';
 import {positionOnRoute} from '../public/route.js';
 import {modelFaces,MapModels} from '../public/models.js';
@@ -85,7 +85,7 @@ test('system overviews keep celestial bodies and gates ahead of station detail',
  const {map}=fixture();for(const system of ['stanton','pyro','nyx']){
   map.setSystem(system);map.draw();const markers=map.hits.filter(h=>h.body&&!h.box);
   assert.ok(markers.some(h=>h.body.kind==='planet'));
-  if(system==='pyro')assert.ok(markers.some(h=>h.body.name==='Pyro IV'),'Pyro IV remains a planet even though it orbits Pyro V');
+  if(system==='pyro'){assert.ok(markers.some(h=>h.body.name==='Pyro V'));assert.ok(!markers.some(h=>h.body.name==='Pyro IV'),'overlapping child planet is grouped under Pyro V');assert.equal(catalog.bodies.find(b=>b.name==='Pyro IV').kind,'planet');}
   assert.ok(markers.every(h=>h.body.mapImportance==='primary'||['planet','star','gateway','body','lagrange'].includes(h.body.kind)),system);
  }
 });
@@ -127,11 +127,24 @@ test('phone system framing includes distant Nyx service stations and keeps core 
  const {map}=fixture();map.canvas.getBoundingClientRect=()=>({width:390,height:680,left:0,top:0});
  for(const system of ['stanton','pyro','nyx']){
   map.setSystem(system);map.draw();const labels=map.hits.filter(h=>h.box).map(h=>h.body.id);
-  for(const body of catalog.bodies.filter(b=>b.system===system&&(['planet','gateway'].includes(b.kind)||system!=='stanton'&&b.mapImportance==='primary'))){
+  for(const body of catalog.bodies.filter(b=>b.system===system&&(['planet','gateway'].includes(b.kind)&&map.byId.get(b.parent)?.kind!=='planet'||system!=='stanton'&&b.mapImportance==='primary'))){
    const [x,y]=map.project(body.position);assert.ok(x>=0&&x<=map.w&&y>=0&&y<=map.h,body.name+' in phone frame');
    assert.ok(labels.includes(body.id),body.name+' phone label');
   }
  }
+});
+
+test('the Pyro IV/V system target opens Pyro V local orbits, where IV is selectable',()=>{
+ const {map}=fixture(),parent=catalog.bodies.find(b=>b.name==='Pyro V'),child=catalog.bodies.find(b=>b.name==='Pyro IV');map.setSystem('pyro');map.draw();map.onSelect=b=>map.focus(b);
+ const [x,y]=map.project(child.position);map.click({clientX:x,clientY:y});assert.equal(map.view.level,'orbits');assert.equal(map.view.bodyId,parent.id);map.draw();
+ const boxes=map.hits.filter(h=>h.box).map(h=>h.body.id);assert.ok(boxes.indexOf(parent.id)>=0&&boxes.indexOf(parent.id)<boxes.indexOf(child.id));
+ const hit=map.hits.find(h=>!h.box&&h.body?.id===child.id);assert.ok(hit);map.click({clientX:hit.x,clientY:hit.y});assert.equal(map.view.level,'body');assert.equal(map.view.bodyId,child.id);
+ map.stepOut();assert.equal(map.view.level,'orbits');assert.equal(map.view.bodyId,parent.id);
+});
+
+test('wheel focus does not skip local orbits when reduced motion makes focus immediate',()=>{
+ const {map,events}=fixture();globalThis.matchMedia=()=>({matches:true});map.onSelect=(b,focus=true)=>{if(focus)map.focus(b);};
+ try{map.draw();const hit=map.hits.find(h=>!h.box&&h.body?.name==='microTech');events.wheel({deltaY:-300,clientX:hit.x,clientY:hit.y,preventDefault(){}});assert.equal(map.view.level,'orbits');assert.equal(map.byId.get(map.selected).name,'microTech');}finally{delete globalThis.matchMedia;}
 });
 
 test('planet selection opens local moons before a fitted body close-up',()=>{
@@ -185,7 +198,7 @@ test('a searched station remains visible at overview scale and local detail is s
 test('a game navigation symbol does not turn a surface POI into a station close-up',()=>{
  const {map}=fixture();const poi=catalog.bodies.find(b=>b.modelRole==='symbol'&&map.surfaceParent(b));
  assert.ok(poi);const parent=map.surfaceParent(poi);map.setSystem(poi.system);map.focus(poi);
- assert.equal(map.span,Math.max(25000,Math.min(2.5e6,parent.radius*.1)));assert.deepEqual(map.center,poi.position);
+ assert.equal(map.span,Math.max(25000,Math.min(2.5e6,parent.radius*.1))*LOCATION_FOCUS_PULLBACK);assert.deepEqual(map.center,poi.position);
 });
 
 test('all extracted stars focus to a close-up while retaining their game material',()=>{
@@ -214,8 +227,8 @@ test('orbital station focus retains its planet and manual close-ups never hide i
  const {map}=fixture();map.mapModels.get=()=>({});for(const name of ['Seraphim Station','Port Tressler','Everus Harbor','Baijini Point']){
   const station=catalog.bodies.find(b=>b.name===name),parent=map.surfaceParent(station);
   map.setSystem(station.system);map.focus(station);map.draw();
-  assert.equal(map.span,Math.max(600,station.modelSize*.95),name);assert.deepEqual(map.center,station.position);assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' parent');
-  assert.ok(map.hits.find(h=>h.body?.id===station.id&&!h.box).r>Math.min(map.w,map.h)*.3,name+' large foreground model');
+  assert.equal(map.span,Math.max(600,station.modelSize*.95)*LOCATION_FOCUS_PULLBACK,name);assert.deepEqual(map.center,station.position);assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' parent');
+  assert.ok(map.hits.find(h=>h.body?.id===station.id&&!h.box).r>Math.min(map.w,map.h)*.05,name+' visible model with wider context');
   assert.ok(map.hits.some(h=>h.body?.id===station.id&&!h.box),name+' station');
   assert.ok(!map.occluded(station.position,parent),name+' near side');
   map.center=[...station.position];map.span=20000;map.draw();
@@ -223,7 +236,7 @@ test('orbital station focus retains its planet and manual close-ups never hide i
  }
 });
 
-test('station silhouettes fill most of desktop and phone frames without clipping',()=>{
+test('station focus leaves more surrounding context on desktop and phone without losing the model',()=>{
  const {map}=fixture();
  for(const [width,height] of [[1280,642],[390,680]])for(const name of ['Seraphim Station','Port Tressler','Everus Harbor','Baijini Point']){
   map.canvas.getBoundingClientRect=()=>({width,height,left:0,top:0});const station=catalog.bodies.find(b=>b.name===name);
@@ -233,7 +246,7 @@ test('station silhouettes fill most of desktop and phone frames without clipping
   const radius=Math.max(...points.map(p=>Math.hypot(p[0],p[1])))*.875,extent=Math.max(...points.flatMap(p=>[Math.abs(p[0]),Math.abs(p[1])]))*.875;
   map.mapModels.get=()=>({meshRadius:radius,meshExtent:extent});map.draw();
   const hit=map.hits.find(h=>!h.box&&h.body?.id===station.id),spriteR=(hit.r-6)/radius,fill=spriteR*extent*2/Math.min(width,height);
-  assert.ok(fill>=.72&&fill<=.81,name+' framed at '+fill);
+  assert.ok(fill>=.1&&fill<=.6,name+' widened framing at '+fill);
  }
 });
 

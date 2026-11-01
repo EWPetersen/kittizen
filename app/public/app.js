@@ -21,6 +21,7 @@ let catalog, bodies, map, catalogRevision = null,
   reportFraction = .5;
 // Shards change between game sessions: require an explicit choice on each visit.
 let currentShard = '';
+let presenceRequest=0,shardListExpiry;
 const api = async (path, data) => {
   let response = await fetch('/api/' + path, data ? {
     method: 'POST',
@@ -150,8 +151,13 @@ $('#auth-form').onsubmit = async e => {
 $('#shard-form').onsubmit = e => {
   e.preventDefault();
   let s = $('#shard-region').value + '-' + $('#shard').value.trim();
+  joinShard(s);
+};
+function joinShard(s,system){
   if (!/^(US|EU|AUS|ASIA)-[0-9]{3}$/.test(s)) return toast('Choose a region and enter exactly three digits');
   currentShard = s;
+  $('#shard-region').value=s.split('-')[0];$('#shard').value=s.split('-')[1];$('#map-shard').textContent=s;
+  if(system&&map.systems.some(item=>item.id===system)){map.setSystem(system);panel('map-area');toast('Joined '+s);return;}
   updatePresence();
   reports = [];
   renderReports();
@@ -160,7 +166,7 @@ $('#shard-form').onsubmit = e => {
   loadReports();
   $('#map-shard').textContent = s;
   toast('Joined ' + s);
-};
+}
 async function loadReports() {
   const generation = ++loadGeneration,
     s = currentShard;
@@ -572,7 +578,7 @@ async function start() {
   try {
     catalog = await fetch('catalog.json').then(r => r.json());
     bodies = catalog.bodies;
-    map = new StarMap($('#map'), bodies, b => selectBody(b), (t, r) => r ? focusActivity(r) : report(t));
+    map = new StarMap($('#map'), bodies, (b,focus=true) => selectBody(b,focus), (t, r) => r ? focusActivity(r) : report(t));
     map.belts=catalog.belts||[];
     map.systems = catalog.systems || [{
       id: 'stanton',
@@ -685,6 +691,7 @@ async function jumpToSystem(id) {
 }
 
 function showSystem(id) {
+  if(id==='universe')renderActiveShards(null,'loading');else if($('#active-shards'))$('#active-shards').hidden=true;
   if($('#map-location-actions'))$('#map-location-actions').hidden=true;
   selected=null;map.selected=null;$('#selection').replaceChildren();
   $('#system-picker').value = id;
@@ -725,10 +732,32 @@ function setupPanelToggles(){
 setupPanelToggles();
 async function updatePresence(){
   if(!map||document.hidden)return;
-  const system=map.system,shard=currentShard;
+  const system=map.system,shard=currentShard,request=++presenceRequest;
+  const viewers=n=>n+' connected viewer'+(n===1?'':'s');
   let label=$('#viewer-count');if(!label){label=el('small',undefined,'hint');label.id='viewer-count';$('#map-subtitle').after(label);}
-  try{const counts=await api('presence',{system,shard});if(system!==map.system||shard!==currentShard)return;label.textContent=system==='universe'?counts.total+' connected viewers · all shards':shard?counts.count+' connected viewers · '+shard+' / '+system:'Choose a shard to see its viewer count';}
-  catch{label.textContent='Viewer count unavailable';}
+  try{const counts=await api('presence',{system,shard,includeShards:system==='universe'});if(request!==presenceRequest||system!==map.system||shard!==currentShard)return;label.textContent=system==='universe'?viewers(counts.total)+' · all shards':shard?viewers(counts.count)+' · '+shard+' / '+system:'Choose a shard to see its viewer count';if(system==='universe')renderActiveShards(counts);}
+  catch{if(request!==presenceRequest||system!==map.system||shard!==currentShard)return;label.textContent='Viewer count unavailable';if(system==='universe')renderActiveShards(null,'error');}
+}
+function renderActiveShards(data,state='ready'){
+  if(!map||map.system!=='universe')return;
+  clearTimeout(shardListExpiry);if(state==='ready')shardListExpiry=setTimeout(()=>renderActiveShards(null,'error'),45000);
+  let card=$('#active-shards');
+  if(!card){
+    card=el('details',undefined,'active-shards');card.id='active-shards';card.open=!matchMedia('(max-width:700px)').matches;
+    const summary=el('summary','Active shards'),list=el('div',undefined,'active-shard-list'),hint=el('small',undefined,'hint');
+    list.id='active-shard-list';list.setAttribute('aria-label','Active shards on Kittizen');hint.id='active-shard-hint';card.append(summary,list,hint);document.querySelector('.map-title').append(card);
+  }
+  card.hidden=false;const key=JSON.stringify([state,data?.shards,data?.activeShardCount]);if(card.dataset.state===key)return;card.dataset.state=key;
+  const rows=data?.shards||[],list=$('#active-shard-list');list.replaceChildren();
+  card.querySelector('summary').textContent='Active shards'+(state==='ready'?' · '+(data?.activeShardCount||0):'');
+  $('#active-shard-hint').textContent=state==='loading'?'Checking connected viewers…':state==='error'?'Live list unavailable · retrying automatically.':rows.length?'Kittizen viewers active in the last 45 seconds. Select a shard to open it.':'No active shards yet. Choose a region and shard to appear here.';
+  for(const row of rows){
+    const button=el('button',undefined,'active-shard');button.type='button';const system=map.systems.find(s=>s.id===row.system);
+    button.append(el('strong',row.shard),el('span',row.count+' viewer'+(row.count===1?'':'s')));button.title='Open '+row.shard+' in '+(system?.name||row.system);
+    button.setAttribute('aria-label','Open '+row.shard+' · '+row.count+' viewer'+(row.count===1?'':'s'));button.onclick=()=>joinShard(row.shard,row.system);list.append(button);
+  }
+  if(data?.activeShardCount>rows.length)list.append(el('small','Showing the '+rows.length+' most active shards.','hint'));
+  map.invalidate();
 }
 function updateHeatLegend(){
   $('#heat-scope').textContent=map?.system==='universe'?'System totals · select a disc for location detail':'Recent activity · follows the map camera';

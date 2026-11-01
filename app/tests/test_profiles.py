@@ -43,6 +43,28 @@ class ProfileAuthTests(unittest.TestCase):
         self.assertEqual(self.request('presence',{'system':'universe','shard':''})[1],dict(total=1,count=1))
         self.assertEqual(self.request('presence',{'system':'bad','shard':''})[0],400)
         self.assertEqual(self.request('presence',{'system':'stanton','shard':'bad'})[0],400)
+    def test_active_shards_aggregate_regions_and_systems_without_identity(self):
+        other,third,spectator=self.new_client(),self.new_client(),self.new_client()
+        self.request('presence',{'system':'stanton','shard':'US-007'})
+        self.request('presence',{'system':'pyro','shard':'US-007'},other)
+        self.request('presence',{'system':'nyx','shard':'EU-034'},third)
+        data=self.request('presence',{'system':'universe','shard':'','includeShards':True},spectator)[1]
+        self.assertEqual(data['activeShardCount'],2);self.assertEqual(data['shards'],[dict(shard='US-007',count=2,system='pyro'),dict(shard='EU-034',count=1,system='nyx')])
+        self.assertTrue(all(set(row)=={'shard','count','system'} for row in data['shards']))
+        self.request('presence',{'system':'pyro','shard':'US-007'},other)
+        self.assertEqual(self.request('presence',{'system':'universe','shard':'','includeShards':True},spectator)[1]['shards'][0]['count'],2)
+    def test_active_shards_expire_and_unselected_viewers_do_not_create_a_shard(self):
+        self.request('presence',{'system':'stanton','shard':'AUS-009'})
+        with server.connect() as db:db.execute('UPDATE presence SET seen=?',(time.time()-46,))
+        data=self.request('presence',{'system':'universe','shard':'','includeShards':True})[1]
+        self.assertEqual(data['shards'],[]);self.assertEqual(data['activeShardCount'],0);self.assertEqual(data['total'],1)
+    def test_active_shard_list_is_bounded_and_unknown_legacy_rows_are_excluded(self):
+        with server.connect() as db:
+            for i in range(60):db.execute('INSERT INTO presence VALUES(?,?,?,?)',('guest:'+str(i),'US-'+str(i).zfill(3),'universe',time.time()))
+            db.execute('INSERT INTO presence VALUES(?,?,?,?)',('bad','private@example.test','unknown',time.time()))
+        data=self.request('presence',{'system':'universe','shard':'','includeShards':True})[1]
+        self.assertEqual(data['activeShardCount'],60);self.assertEqual(len(data['shards']),50);self.assertEqual(data['shards'][0]['shard'],'US-000');self.assertEqual(data['shards'][-1]['shard'],'US-049')
+        self.assertTrue(all(row['system']=='stanton' for row in data['shards']))
     def test_universe_reports_combine_shards_and_systems(self):
         self.google()
         bodies=list(server.BODIES.values())
