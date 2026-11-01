@@ -102,3 +102,15 @@ test('all extracted stars focus to a close-up while retaining their game materia
  assert.equal(pixels[3],0);assert.equal(pixels[at+3],255);assert.ok(pixels[at]>pixels[at+1]);
  assert.ok(pixels[at+2]>80,'self-lit surface must not receive a dark planet terminator');
 });
+
+test('orbital station focus retains its planet and manual close-ups never hide it',()=>{
+ const {map}=fixture();for(const name of ['Seraphim Station','Port Tressler','Everus Harbor','Baijini Point']){
+  const station=catalog.bodies.find(b=>b.name===name),parent=map.surfaceParent(station);
+  map.setSystem(station.system);map.focus(station);map.draw();
+  assert.ok(map.span>=parent.radius*3.4,name);assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' parent');
+  assert.ok(map.hits.some(h=>h.body?.id===station.id&&!h.box),name+' station');
+  assert.ok(!map.occluded(station.position,parent),name+' near side');
+  map.center=[...station.position];map.span=20000;map.draw();
+  assert.ok(map.hits.some(h=>h.body?.id===parent.id&&!h.box),name+' close-up parent');
+ }
+});

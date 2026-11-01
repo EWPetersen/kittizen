@@ -264,7 +264,16 @@ export class StarMap {
       target.span=Math.max(2e4,parent ? parent.radius*4 : 2e6);
       target.pitch=Math.max(-Math.PI/2+.01,Math.min(Math.PI/2-.01,target.pitch-.55));
     }
-    if(b.model&&b.modelRole!=='symbol'){target.center=[...b.position];target.span=Math.max(2e4,(b.modelSize||1000)*8);}
+    if(b.model&&b.modelRole!=='symbol'){
+      if(parent){
+        // Frame an orbital facility with its parent, rather than diving straight
+        // down to a kilometre-scale model and losing all planetary context.
+        const distance=Math.hypot(...b.position.map((v,i)=>v-parent.position[i]));
+        target.center=parent.position.map((v,i)=>v+(b.position[i]-v)*.35);
+        target.span=Math.max(parent.radius*3.4,distance*1.8,(b.modelSize||1000)*8);
+        target.pitch=Math.max(-Math.PI/2+.01,Math.min(Math.PI/2-.01,target.pitch-.55));
+      }else{target.center=[...b.position];target.span=Math.max(2e4,(b.modelSize||1000)*8);}
+    }
     Object.assign(this,start);this.flyTo(target);
   }
   focusReport(report) {
@@ -569,9 +578,6 @@ export class StarMap {
     for (let b of sorted) {
       let [x, y] = this.project(b.position);
       const bound = Math.max(30, (b.kind==='star'?stellarRadius(b)*3.2:b.radius||0) * this.scale);
-      // Keep an enormous nearby globe from becoming an opaque backdrop in a station close-up.
-      const selection=this.byId.get(this.selected);
-      if (b.radius > 0 && bound > Math.max(this.w,this.h)*4 && selection?.model&&selection.modelRole!=='symbol') continue;
       if (x < -bound || x > this.w + bound || y < -bound || y > this.h + bound) continue;
       if (b.hidden) continue;
       if (b.category === 'auxiliary' && this.selected !== b.id) continue;
