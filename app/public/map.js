@@ -131,12 +131,13 @@ export class StarMap {
       Object.assign(this,target);this.transition=null;this.invalidate();return;
     }
     const angle=((target.yaw-start.yaw+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
-    this.transition={start,target:{...target,yaw:start.yaw+angle},time:performance.now(),duration:Math.min(1400,650+Math.abs(Math.log(target.span/start.span))*65)};
+    this.transition={start,target:{...target,yaw:start.yaw+angle},time:performance.now(),duration:Math.min(1750,850+Math.abs(Math.log(target.span/start.span))*75)};
     this.invalidate();
   }
   advanceCamera(now) {
     const move=this.transition;if(!move)return;
-    const t=Math.min(1,Math.max(0,(now-move.time)/move.duration)),ease=t*t*(3-2*t);
+    // Quintic easing starts and finishes with zero velocity and acceleration.
+    const t=Math.min(1,Math.max(0,(now-move.time)/move.duration)),ease=t*t*t*(10+t*(-15+6*t));
     this.span=Math.exp(Math.log(move.start.span)*(1-ease)+Math.log(move.target.span)*ease);
     // Keep the target's projected distance shrinking steadily as scale changes.
     const remaining=(1-ease)*this.span/move.start.span;
@@ -563,15 +564,9 @@ export class StarMap {
       let r = b.kind === 'star' ? 10 : b.radius > 0 ? Math.max(b.kind === 'planet' ? 13 : 7, b.radius * this.scale) : 4;
       let color = b.kind === 'star' ? '#e7ce90' : b.kind === 'gateway' ? '#d9bf88' : b.kind === 'planet' ? '#86c8d0' : '#6b9ca8';
       const model=b.model&&this.span<4e8&&(!parent||this.span<parent.radius*12)?this.mapModels.get(b,this.yaw,this.pitch):null;
-      if (selected && b.radius > 0) {
-        c.strokeStyle = '#ff9dd0';
-        c.lineWidth = 1;
-        c.strokeRect(x - r - 6, y - r - 6, r * 2 + 12, r * 2 + 12);
-      }
       if(model){
         r=Math.max(14,Math.min(72,(b.modelSize||1000)*this.scale));
         c.drawImage(model,x-r,y-r,r*2,r*2);
-        if(selected){c.strokeStyle='#ff9dd0';c.lineWidth=1;c.strokeRect(x-r-4,y-r-4,r*2+8,r*2+8);}
       } else if (b.radius > 0 || b.kind === 'star') {
         const globe = this.globeTextures.get(b, this.yaw, this.pitch, r > 150 && !this.pointers.size ? 384 : 256);
         if (globe) {

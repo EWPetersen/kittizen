@@ -55,3 +55,9 @@ test('double click keeps a focus animation for each celestial object type',()=>{
   f.events.dblclick({clientX:120,clientY:180,timeStamp:250});assert.equal(f.map.transition,move,kind);delete globalThis.matchMedia;
  }
 });
+
+test('focus is gently timed and selected planets have no rectangular outline',()=>{
+ const f=fixture();let boxes=0;f.canvas.getContext().strokeRect=()=>boxes++;
+ globalThis.matchMedia=()=>({matches:false});
+ try{f.map.selected=f.bodies[0].id;f.map.focus(f.bodies[0]);const move=f.map.transition;assert.ok(move.duration>=850&&move.duration<=1750);f.map.advanceCamera(move.time+move.duration);f.map.draw();assert.equal(boxes,0);assert.equal(f.map.transition,null);}finally{delete globalThis.matchMedia;}
+});

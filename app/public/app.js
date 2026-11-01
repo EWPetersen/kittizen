@@ -674,3 +674,18 @@ function updateHeatLegend(){
   $('#heat-scope').textContent=map?.system==='universe'?'System totals · select a disc for location detail':'Recent activity · follows the map camera';
 }
 start().then(()=>{if(location.hash.startsWith('#pilot/')){try{openProfile(decodeURIComponent(location.hash.slice(7)));}catch{toast('Invalid pilot link');}}});
+
+
+function setupHeatLegend(){
+  const legend=$('#heat-legend');if(!legend)return;
+  const positions=['bottom-left','bottom-right','top-left','top-right'];
+  let settings={hidden:false,position:'bottom-left'};
+  try{const value=JSON.parse(localStorage.getItem('kittizen-heat-legend')||'null');if(value){settings.hidden=value.hidden===true;if(positions.includes(value.position))settings.position=value.position;}}catch{}
+  const toggle=el('button','Heat');toggle.id='legend-toggle';toggle.type='button';toggle.title='Show or hide activity heat legend';toggle.setAttribute('aria-label','Toggle activity heat legend');toggle.setAttribute('aria-controls','heat-legend');$('.map-controls').append(toggle);
+  const controls=el('div',undefined,'legend-controls'),select=el('select');select.setAttribute('aria-label','Heat legend position');
+  for(const value of positions)select.append(option(value,value.replace('-',' ')));
+  const hide=el('button','Hide');hide.type='button';hide.setAttribute('aria-label','Hide activity heat legend');controls.append(select,hide);legend.append(controls);
+  function apply(){legend.hidden=settings.hidden;legend.dataset.position=settings.position;select.value=settings.position;toggle.setAttribute('aria-pressed',String(!settings.hidden));try{localStorage.setItem('kittizen-heat-legend',JSON.stringify(settings));}catch{}map?.invalidate();}
+  toggle.onclick=()=>{settings.hidden=!settings.hidden;apply();};hide.onclick=()=>{settings.hidden=true;apply();};select.onchange=()=>{settings.position=select.value;apply();};apply();
+}
+setupHeatLegend();
