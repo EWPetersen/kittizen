@@ -9,7 +9,8 @@ import fs from 'node:fs';
 const catalog=JSON.parse(fs.readFileSync(new URL('../public/catalog.json',import.meta.url),'utf8'));
 globalThis.ResizeObserver=class{observe(){}};globalThis.requestAnimationFrame=()=>{};globalThis.devicePixelRatio=1;
 globalThis.Image=class{};
-globalThis.document={querySelector:()=>({textContent:''})};
+globalThis.ImageData=class{constructor(data,width,height){Object.assign(this,{data,width,height});}};
+globalThis.document={querySelector:()=>({textContent:''}),createElement:()=>({getContext:()=>({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData(){}})})};
 function fixture(){const events={},ctx=new Proxy({measureText:t=>({width:t.length*6}),createRadialGradient:()=>({addColorStop(){}})},{get:(o,k)=>k in o?o[k]:()=>{}});const canvas={getContext:()=>ctx,getBoundingClientRect:()=>({width:900,height:800,left:0,top:0}),addEventListener:(k,v)=>events[k]=v,setPointerCapture(){}};const map=new StarMap(canvas,catalog.bodies,()=>{},()=>{});map.systems=catalog.systems;map.setSystem('stanton');map.draw();return {map,events};}
 test('Stanton default puts microTech upper right and restores after orbit',()=>{const {map}=fixture(),mt=catalog.bodies.find(b=>b.name==='microTech');let p=map.project(mt.position);assert.ok(p[0]>map.w/2);assert.ok(p[1]<map.h/2);map.yaw=2;map.pitch=1;map.home();map.draw();p=map.project(mt.position);assert.ok(p[0]>map.w/2&&p[1]<map.h/2);});
 test('each system renders only its own physical bodies',()=>{const {map}=fixture();for(const id of ['stanton','pyro','nyx']){map.setSystem(id);map.draw();assert.ok(map.hits.length);assert.ok(map.hits.every(h=>!h.body||h.body.system===id));}});

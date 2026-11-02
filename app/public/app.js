@@ -5,6 +5,7 @@ import {
   positionOnRoute
 } from './route.js';
 import {optimizeSnare,referenceMarkers,trilaterate,assessPosition,parseCoordinates,destinationReference,parseDistance,distanceUnit,distanceValue,formatDistance,navigationCandidates,drawSnareSection} from './interdiction.js';
+import {drawJumpTransit,JUMP_DURATION} from './portals.js';
 const $ = s => document.querySelector(s),
   el = (tag, text, cls) => {
     let n = document.createElement(tag);
@@ -948,12 +949,16 @@ async function jumpToSystem(id) {
   if(jumping||id===map.system||!map.systems.some(s=>s.id===id))return;
   if(matchMedia('(prefers-reduced-motion: reduce)').matches){map.setSystem(id);return;}
   jumping=true;
-  const source=map.system, overlay=el('div',undefined,'wormhole'),tunnel=el('div',undefined,'wormhole-tunnel');
-  overlay.style.setProperty('--jump-glow',source==='pyro'?'255,190,128':source==='nyx'?'92,235,211':'137,215,247');
+  const source=map.system, overlay=el('div',undefined,'wormhole'),tunnel=el('canvas',undefined,'wormhole-flight');
   overlay.setAttribute('aria-hidden','true');overlay.append(tunnel);$('#map-area').append(overlay);
-  const animation=overlay.animate([{opacity:0},{opacity:1,offset:.25},{opacity:1,offset:.65},{opacity:0}],{duration:760,easing:'ease-in-out'});
-  const travel=setTimeout(()=>{if(map.system===source)map.setSystem(id);},380);
-  try{await animation.finished;}catch{}finally{clearTimeout(travel);overlay.remove();jumping=false;}
+  const bounds=overlay.getBoundingClientRect(),scale=Math.min(1,960/Math.max(1,bounds.width));
+  tunnel.width=Math.max(1,Math.round(bounds.width*scale));tunnel.height=Math.max(1,Math.round(bounds.height*scale));
+  const context=tunnel.getContext('2d'),start=performance.now();let frame=0,last=0;
+  const render=now=>{const progress=Math.min(1,(now-start)/JUMP_DURATION);if(now-last>=1000/30){drawJumpTransit(context,tunnel.width,tunnel.height,progress,source);last=now;}if(progress<1)frame=requestAnimationFrame(render);};
+  drawJumpTransit(context,tunnel.width,tunnel.height,0,source);frame=requestAnimationFrame(render);
+  const animation=overlay.animate([{opacity:0},{opacity:1,offset:.16},{opacity:1,offset:.78},{opacity:0}],{duration:JUMP_DURATION,easing:'ease-in-out'});
+  const travel=setTimeout(()=>{if(map.system===source)map.setSystem(id);},JUMP_DURATION*.65);
+  try{await animation.finished;}catch{}finally{clearTimeout(travel);cancelAnimationFrame(frame);overlay.remove();jumping=false;}
 }
 
 function showSystem(id) {

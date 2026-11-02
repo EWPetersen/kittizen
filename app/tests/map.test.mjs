@@ -2,12 +2,29 @@ globalThis.ImageData=class{constructor(data,width,height){Object.assign(this,{da
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {StarMap,layoutLabels,labelPriority,trackLabels} from '../public/map.js';
-import {portalRim,portalRadius,animatePortal,portalPalette} from '../public/portals.js';
+import {portalRim,portalRadius,animatePortal,portalPalette,portalPixels,drawJumpPortal,drawJumpTransit,tunnelPoint,JUMP_DURATION} from '../public/portals.js';
 import {beltParticles,drawBelts} from '../public/belts.js';
 globalThis.ResizeObserver=class{observe(){}};
 let frames=[];globalThis.requestAnimationFrame=f=>frames.push(f);globalThis.devicePixelRatio=3;
 const scaleLabel={textContent:''};globalThis.document={createElement:()=>({getContext:()=>({putImageData(){}})}),querySelector:()=>scaleLabel};
 test('jump-point palettes distinguish released-game warm and cool system entrances',()=>{assert.notDeepEqual(portalPalette('pyro'),portalPalette('nyx'));assert.notDeepEqual(portalPalette('stanton'),portalPalette('pyro'));assert.deepEqual(portalPalette('pyro',false),portalPalette('nyx',false));});
+test('gas portal rasters are deterministic, transparent at edges and bounded in allocation',()=>{
+ const p=portalPixels(48,'nyx');assert.equal(p.length,48*48*4);assert.deepEqual(p,portalPixels(48,'nyx'));assert.notDeepEqual(p,portalPixels(48,'pyro'));assert.equal(p[3],0);assert.ok(p.some((v,i)=>i%4===3&&v>200));
+ for(const size of [0,15,513,Infinity,32.5])assert.throws(()=>portalPixels(size));
+});
+test('gate and tunnel animation reuse cached rasters rather than regenerate noise each frame',()=>{
+ const original=globalThis.document;let allocations=0,images=0,vertices=0;
+ const canvas={getContext:()=>({createImageData:(w,h)=>{allocations++;return {data:new Uint8ClampedArray(w*h*4)};},putImageData(){}})};
+ globalThis.document={createElement:()=>canvas};
+ const context=new Proxy({drawImage(){images++;},createRadialGradient:()=>({addColorStop(){}}),moveTo(...v){assert.ok(v.every(Number.isFinite));vertices++;},lineTo(...v){assert.ok(v.every(Number.isFinite));vertices++;}},{get:(o,k)=>k in o?o[k]:()=>{}});
+ try{
+  drawJumpPortal(context,200,200,8);assert.equal(allocations,0);
+  for(let i=0;i<5;i++){drawJumpPortal(context,200,200,200,{phase:i,system:'nyx'});drawJumpTransit(context,390,650,i/4,'nyx');}
+  assert.equal(allocations,2);assert.equal(images,15);assert.ok(vertices<40000);
+  assert.ok(JUMP_DURATION>1000&&JUMP_DURATION<1500);
+  for(const depth of [0,.5,1])assert.ok(tunnelPoint(1,depth,.5,390,650).every(Number.isFinite));
+ }finally{globalThis.document=original;}
+});
 test('system belt labels remain available outside the minor-POI label budget',()=>{
  const belt={id:'aaron',name:'Aaron Halo',system:'stanton',center:[0,0,0],rotation:[1,0,0,0],innerRadius:1000,outerRadius:2000,depth:10,radialWidthKnown:true};
  const c={save(){},restore(){},fillRect(){}},project=p=>[400+p[0]/10,300+p[1]/10],labels=drawBelts(c,[belt],'stanton',project,[0,0,0],10000,800,600);
