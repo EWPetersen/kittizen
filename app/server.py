@@ -124,6 +124,8 @@ def init():
         CREATE TABLE IF NOT EXISTS presence(viewer TEXT PRIMARY KEY,shard TEXT,system TEXT,seen REAL);
         CREATE TABLE IF NOT EXISTS workspaces(user TEXT PRIMARY KEY REFERENCES users(id),payload TEXT,updated REAL);
         CREATE TABLE IF NOT EXISTS routes(id TEXT PRIMARY KEY,user TEXT REFERENCES users(id),name TEXT,origin TEXT,destination TEXT,created REAL);
+        CREATE TABLE IF NOT EXISTS interceptions(id TEXT PRIMARY KEY,user TEXT REFERENCES users(id),name TEXT,inputs TEXT,created REAL);
+        CREATE INDEX IF NOT EXISTS interceptions_author ON interceptions(user,created);
         """)
         columns = {r["name"] for r in db.execute("PRAGMA table_info(reports)")}
         for name, definition in [
@@ -175,6 +177,32 @@ def ensure_workspace_schema():
         db.execute('CREATE TABLE IF NOT EXISTS workspaces(user TEXT PRIMARY KEY REFERENCES users(id),payload TEXT,updated DOUBLE PRECISION)')
         db.execute('ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY')
         db.execute('REVOKE ALL ON workspaces FROM PUBLIC')
+
+@lru_cache(maxsize=1)
+def ensure_interception_schema():
+    if not os.environ.get('KITTIZEN_DATABASE_URL'):return
+    with connect() as db:
+        db.execute('SELECT pg_advisory_xact_lock(731908179)')
+        db.execute('CREATE TABLE IF NOT EXISTS interceptions(id TEXT PRIMARY KEY,user TEXT REFERENCES users(id),name TEXT,inputs TEXT,created DOUBLE PRECISION)')
+        db.execute('CREATE INDEX IF NOT EXISTS interceptions_author ON interceptions(user,created)')
+        db.execute('ALTER TABLE interceptions ENABLE ROW LEVEL SECURITY')
+        db.execute('REVOKE ALL ON interceptions FROM PUBLIC')
+
+def interception_inputs(value):
+    if not isinstance(value,dict):raise ValueError('Invalid interception settings')
+    origin,destination=value.get('origin'),value.get('destination')
+    if origin not in BODIES or destination not in BODIES or origin==destination:raise ValueError('Choose two different mapped locations')
+    extras=value.get('origins',[])
+    if not isinstance(extras,list) or len(extras)>5 or any(not isinstance(x,str) or x not in BODIES or x==origin for x in extras) or len(set(extras))!=len(extras):raise ValueError('Invalid alternative origins')
+    settings=value.get('settings');names=('margin','startSpread','endSpread','minTravel','endBuffer','placement')
+    if not isinstance(settings,dict) or set(settings)!=set(names):raise ValueError('Invalid interception settings')
+    for name in names:
+        n=settings[name]
+        if type(n) not in (int,float) or not math.isfinite(n) or n<0 or n>(100 if name=='placement' else 1e15):raise ValueError('Invalid '+name)
+    if settings['margin']>=CATALOG.get('interdiction',{}).get('snareRadius',20000):raise ValueError('Safety margin must be smaller than the snare radius')
+    leg=value.get('leg')
+    if type(leg)!=int or not 0<=leg<=100:raise ValueError('Invalid quantum leg')
+    return dict(origin=origin,destination=destination,origins=extras,leg=leg,settings=settings,generation=text(value.get('generation'),80))
 
 
 def trust(db, uid, now=None):
@@ -382,6 +410,10 @@ class Handler(BaseHTTPRequestHandler):
                                 trust=trust(db, u["id"]) if u else None,
                             )
                         )
+                    if url.path == '/api/interceptions':
+                        if not u:return self.reply({'error':'Sign in to access saved interceptions'},401)
+                        ensure_interception_schema()
+                        return self.reply([dict(id=r['id'],name=r['name'],inputs=json.loads(r['inputs']),created=r['created']) for r in db.execute('SELECT id,name,inputs,created FROM interceptions WHERE user=? ORDER BY created DESC LIMIT 50',(u['id'],))])
                     if url.path == "/api/routes":
                         return self.reply(
                             [
@@ -714,6 +746,13 @@ class Handler(BaseHTTPRequestHandler):
                         (report["id"], u["id"], value, now),
                     )
                     return self.reply({"ok": True})
+                if path=='/api/interceptions':
+                    ensure_interception_schema();clean=interception_inputs(d.get('inputs'))
+                    if db.execute('SELECT COUNT(*) FROM interceptions WHERE user=?',(u['id'],)).fetchone()[0]>=50:raise ValueError('Interception library is full (50 plans)')
+                    db.execute('INSERT INTO interceptions VALUES(?,?,?,?,?)',(secrets.token_hex(12),u['id'],text(d.get('name'),100),json.dumps(clean,allow_nan=False),now))
+                    return self.reply({'ok':True},201)
+                if path=='/api/interceptions/delete':
+                    ensure_interception_schema();db.execute('DELETE FROM interceptions WHERE id=? AND user=?',(d.get('id'),u['id']));return self.reply({'ok':True})
                 if path == "/api/routes":
                     a = d.get("origin")
                     b = d.get("destination")

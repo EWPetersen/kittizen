@@ -1,5 +1,6 @@
 import {inverseRotate} from './sphere.js';
 const cache=new WeakMap();
+const labelPoints=new WeakMap();
 export function beltParticles(belt,count=1100){
   if(cache.has(belt)&&cache.get(belt).length===count)return cache.get(belt);
   const points=[],q=belt.rotation||[1,0,0,0],forward=[q[0],-q[1],-q[2],-q[3]];
@@ -32,8 +33,14 @@ export function drawBelts(c,belts,system,project,center,span,width,height,{local
       c.fillRect(x+jitter,y-jitter,size,size);
     }
     c.restore();
-    const at=points[Math.floor(points.length*.66)],[x,y]=project(at);
-    if(x>40&&x<width-40&&y>40&&y<height-40)labels.push({id:'belt:'+belt.id,x,y,r:3,text:belt.name,width:belt.name.length*6,priority:10});
+    const visible=p=>{const [x,y]=project(p);return x>45&&x<width-45&&y>60&&y<height-90;};
+    let at=labelPoints.get(belt);
+    if(!at||!visible(at)){
+      const candidates=points.filter((p,i)=>i%5===0&&visible(p));
+      at=candidates.reduce((best,p)=>{const score=p=>{const [x,y]=project(p);return Math.hypot(x-width*.32,y-height*.65);};return !best||score(p)<score(best)?p:best;},null);
+      if(at)labelPoints.set(belt,at);
+    }
+    if(at&&visible(at)){const [x,y]=project(at);labels.push({id:'belt:'+belt.id,x,y,r:3,text:belt.name,width:belt.name.length*6,priority:belt.parent?10:6,important:!belt.parent});}
   }
   return labels;
 }

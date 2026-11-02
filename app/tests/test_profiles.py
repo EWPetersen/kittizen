@@ -5,6 +5,20 @@ from unittest.mock import patch
 import server
 
 class ProfileAuthTests(unittest.TestCase):
+    def test_saved_interceptions_are_private_validated_and_owner_deleted(self):
+        self.request('register',{'handle':'TrapPilot','password':'local-test-password'})
+        places=[b['id'] for b in server.BODIES.values() if b['kind']=='planet']
+        settings=dict(margin=2000,startSpread=1e6,endSpread=10000,minTravel=1e7,endBuffer=1e5,placement=100)
+        inputs=dict(origin=places[0],destination=places[1],origins=[],leg=0,settings=settings,generation='test-build')
+        self.assertEqual(self.request('interceptions',{'name':'My setup','inputs':inputs})[0],201)
+        saved=self.request('interceptions')[1];self.assertEqual(saved[0]['inputs'],inputs);ident=saved[0]['id']
+        other=self.new_client();self.assertEqual(self.request('interceptions',client=other)[0],401)
+        self.request('register',{'handle':'OtherTrapper','password':'local-test-password'},other)
+        self.assertEqual(self.request('interceptions',client=other)[1],[])
+        self.request('interceptions/delete',{'id':ident},other);self.assertEqual(len(self.request('interceptions')[1]),1)
+        for change in [dict(leg=True),dict(origins=[places[0]]),dict(settings=dict(settings,margin=20000)),dict(settings=dict(settings,placement=float('nan')))]:
+            self.assertEqual(self.request('interceptions',{'name':'bad','inputs':dict(inputs,**change)})[0],400)
+        self.request('interceptions/delete',{'id':ident});self.assertEqual(self.request('interceptions')[1],[])
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
         self.old_db,self.old_client=server.DB,server.GOOGLE_CLIENT_ID

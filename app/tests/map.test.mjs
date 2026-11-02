@@ -2,11 +2,18 @@ globalThis.ImageData=class{constructor(data,width,height){Object.assign(this,{da
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {StarMap,layoutLabels,labelPriority,trackLabels} from '../public/map.js';
-import {portalRim,portalRadius,animatePortal} from '../public/portals.js';
+import {portalRim,portalRadius,animatePortal,portalPalette} from '../public/portals.js';
 import {beltParticles,drawBelts} from '../public/belts.js';
 globalThis.ResizeObserver=class{observe(){}};
 let frames=[];globalThis.requestAnimationFrame=f=>frames.push(f);globalThis.devicePixelRatio=3;
 const scaleLabel={textContent:''};globalThis.document={createElement:()=>({getContext:()=>({putImageData(){}})}),querySelector:()=>scaleLabel};
+test('jump-point palettes distinguish released-game warm and cool system entrances',()=>{assert.notDeepEqual(portalPalette('pyro'),portalPalette('nyx'));assert.notDeepEqual(portalPalette('stanton'),portalPalette('pyro'));assert.deepEqual(portalPalette('pyro',false),portalPalette('nyx',false));});
+test('system belt labels remain available outside the minor-POI label budget',()=>{
+ const belt={id:'aaron',name:'Aaron Halo',system:'stanton',center:[0,0,0],rotation:[1,0,0,0],innerRadius:1000,outerRadius:2000,depth:10,radialWidthKnown:true};
+ const c={save(){},restore(){},fillRect(){}},project=p=>[400+p[0]/10,300+p[1]/10],labels=drawBelts(c,[belt],'stanton',project,[0,0,0],10000,800,600);
+ assert.equal(labels.length,1);assert.equal(labels[0].text,'Aaron Halo');assert.equal(labels[0].important,true);
+ const again=drawBelts(c,[belt],'stanton',project,[0,0,0],10000,800,600);assert.deepEqual(again,labels);
+});
 test('local asteroid rings stay absent at system scale and respect globe occlusion',()=>{
  const ring={id:'local',name:'Ring',system:'stanton',parent:'yela',center:[0,0,0],rotation:[1,0,0,0],innerRadius:482000,outerRadius:782000,depth:20000,radialWidthKnown:true};
  let dots=0;const c={save(){},restore(){},fillRect(){dots++;}},project=p=>[400+p[0]/4000,300+p[1]/4000];

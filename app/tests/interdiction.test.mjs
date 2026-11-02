@@ -1,7 +1,40 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {planSnare,assessPosition,trilaterate,referenceMarkers,parseCoordinates,drawSnare,destinationReference} from '../public/interdiction.js';
+import {parseDistance,distanceUnit,distanceValue,formatDistance} from '../public/interdiction.js';
+import {optimizeSnare,enclosingDiscs} from '../public/interdiction.js';
 const leg={kind:'quantum',system:'stanton',start:[0,0,0],end:[1e9,0,0]};
+test('multi-origin optimization offsets the snare to cover both incoming paths at longer range',()=>{
+ const a={...leg,start:[-1e9,0,0],end:[0,0,0]},b={...a,start:[-1e9,1e7,0]},approaches=[a,b].map((leg,i)=>({leg,name:'Origin '+i,startSpread:0,endSpread:0}));
+ const p=optimizeSnare(approaches,{minTravel:0,endBuffer:1e5});
+ assert.ok(p.toEnd>3.59e6&&p.toEnd<3.61e6);assert.ok(p.offset>17000);assert.ok(p.spread<=18000.001);assert.ok(assessPosition(p,p.position).covered);
+ for(const d of p.section.discs)assert.ok(Math.hypot(...d.center.map((v,i)=>v-p.section.circle.center[i]))+d.radius<=p.radius-p.margin+.001);
+ const closer=optimizeSnare(approaches,{minTravel:0,endBuffer:1e5,placement:0});assert.ok(closer.toEnd<p.toEnd);assert.ok(closer.placementBudget>p.placementBudget);
+});
+test('enclosing discs include uncertainty radii and reject invalid or excessive inputs',()=>{
+ const c=enclosingDiscs([{center:[0,0],radius:2},{center:[10,0],radius:4}]);assert.ok(Math.abs(c.radius-8)<1e-5);assert.ok(Math.abs(c.center[0]-6)<1e-5);
+ const tri=enclosingDiscs([{center:[0,0],radius:0},{center:[10,0],radius:0},{center:[0,10],radius:0}]);assert.ok(Math.abs(tri.radius-Math.sqrt(50))<1e-5);
+ assert.throws(()=>enclosingDiscs([]));assert.throws(()=>enclosingDiscs([{center:[0,NaN],radius:1}]));
+});
+test('optimization keeps minimum travel and rejects incompatible or excluded approaches',()=>{
+ const a={...leg,start:[-1e9,0,0],end:[0,0,0]},b={...a,start:[-1e9,1e7,0]},approaches=[a,b].map(leg=>({leg,startSpread:0,endSpread:0}));
+ assert.throws(()=>optimizeSnare(approaches,{bodies:[{position:[0,0,0],radius:1e6,system:'stanton'}]}));
+ assert.throws(()=>optimizeSnare([{leg:a},{leg:{...b,system:'pyro'}}]));assert.throws(()=>optimizeSnare([{leg:a},{leg:{...b,start:[1e9,0,0]}}]));
+ const p=optimizeSnare([{leg:a,startSpread:1e6,endSpread:10000}]);assert.ok(p.fromStart>=1e7);assert.ok(p.toEnd>=1e5);assert.ok(p.spread>17999&&p.spread<=18000.001);
+});
+test('distance inputs accept grouped kilometres, HUD units and explicit unit suffixes',()=>{
+ for(const value of ['4,327,145.698 km','4327145.698','4,327.145698 Mm','4.327145698 Gm'])assert.ok(Math.abs(parseDistance(value,'km')-4327145698)<.001);
+ assert.equal(parseDistance('1.5','Mm'),1500000);assert.equal(parseDistance('2 Gm','km'),2e9);assert.equal(parseDistance('0'),0);
+ for(const value of ['','1,5','1,23,456','NaN','Infinity','-2','1.2.3','3 mm','3 MM','1e309 Gm','1 000','1,000,'])assert.throws(()=>parseDistance(value));
+ assert.throws(()=>parseDistance('1','toString'));
+});
+test('unit switching preserves metre values instead of reinterpreting typed digits',()=>{
+ for(const m of [2000,10000000,4327145698,59876543210.123])for(const unit of ['km','Mm','Gm'])assert.ok(Math.abs(parseDistance(distanceValue(m,unit),unit)-m)<.002);
+});
+test('readable outputs choose HUD-scale units, retain metre precision and use comma grouping',()=>{
+ assert.equal(formatDistance(4327145698),'4.327145698 Gm');assert.equal(formatDistance(4327145698,'km'),'4,327,145.698 km');assert.equal(formatDistance(63476180),'63.47618 Mm');
+ assert.equal(distanceUnit(999999),'km');assert.equal(distanceUnit(1e6),'Mm');assert.equal(distanceUnit(1e9),'Gm');assert.throws(()=>formatDistance(NaN));
+});
 test('destination reference measures to the real marker centre beyond the QT boundary',()=>{
  const p=planSnare(leg),body={id:'destination',name:'Planet',kind:'planet',system:'stanton',position:[1.001e9,0,0]},r=destinationReference(p,body);
  assert.ok(Math.abs(r.distance-p.toEnd-1e6)<1e-6);assert.equal(r.localReference,false);assert.ok(r.minimum<=r.distance&&r.distance<=r.maximum);

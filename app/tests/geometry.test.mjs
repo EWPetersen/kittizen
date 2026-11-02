@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {StarMap,LOCATION_FOCUS_PULLBACK} from '../public/map.js';
+import {StarMap,LOCATION_FOCUS_PULLBACK,secondaryLandmark,labelPriority} from '../public/map.js';
 import {globePixels,inverseRotate} from '../public/sphere.js';
 import {positionOnRoute} from '../public/route.js';
 import {modelFaces,MapModels} from '../public/models.js';
@@ -14,6 +14,7 @@ function fixture(){const events={},ctx=new Proxy({measureText:t=>({width:t.lengt
 test('Stanton default puts microTech upper right and restores after orbit',()=>{const {map}=fixture(),mt=catalog.bodies.find(b=>b.name==='microTech');let p=map.project(mt.position);assert.ok(p[0]>map.w/2);assert.ok(p[1]<map.h/2);map.yaw=2;map.pitch=1;map.home();map.draw();p=map.project(mt.position);assert.ok(p[0]>map.w/2&&p[1]<map.h/2);});
 test('each system renders only its own physical bodies',()=>{const {map}=fixture();for(const id of ['stanton','pyro','nyx']){map.setSystem(id);map.draw();assert.ok(map.hits.length);assert.ok(map.hits.every(h=>!h.body||h.body.system===id));}});
 test('universe has three distinct system discs and no physical-body mixture',()=>{const {map}=fixture();map.setSystem('universe');map.draw();assert.equal(map.hits.length,3);assert.deepEqual(new Set(map.hits.map(h=>h.body.id)),new Set(['stanton','pyro','nyx']));assert.ok(map.hits.every(h=>h.body.kind==='system'));assert.equal(new Set(map.hits.map(h=>h.x+':'+h.y)).size,3);});
+test('default universe places Stanton in the lower right without flipping the local system map',()=>{const {map}=fixture();map.setSystem('universe');map.draw();const stanton=map.hits.find(h=>h.body.id==='stanton');assert.ok(stanton.x>map.w/2&&stanton.y>map.h/2);map.setSystem('stanton');const mt=map.byId.get(catalog.bodies.find(b=>b.name==='microTech').id),p=map.project(mt.position);assert.ok(p[0]>map.w/2&&p[1]<map.h/2);});
 
 test('short landscape universe keeps system discs separate and above the touch toolbar',()=>{
  const {map}=fixture();map.canvas.getBoundingClientRect=()=>({width:844,height:278,left:0,top:0});map.setSystem('universe');map.draw();
@@ -91,7 +92,7 @@ test('system overviews keep celestial bodies and gates ahead of station detail',
   map.setSystem(system);map.draw();const markers=map.hits.filter(h=>h.body&&!h.box);
   assert.ok(markers.some(h=>h.body.kind==='planet'));
   if(system==='pyro'){assert.ok(markers.some(h=>h.body.name==='Pyro V'));assert.ok(!markers.some(h=>h.body.name==='Pyro IV'),'overlapping child planet is grouped under Pyro V');assert.equal(catalog.bodies.find(b=>b.name==='Pyro IV').kind,'planet');}
-  assert.ok(markers.every(h=>h.body.mapImportance==='primary'||['planet','star','gateway','body','lagrange'].includes(h.body.kind)),system);
+  assert.ok(markers.every(h=>h.body.mapImportance==='primary'||secondaryLandmark(h.body)||['planet','star','gateway','body','lagrange'].includes(h.body.kind)),system);
  }
 });
 
@@ -306,5 +307,6 @@ test('Nyx spawn destinations are primary while breaker stations remain secondary
  const primary=catalog.bodies.filter(b=>b.system==='nyx'&&b.mapImportance==='primary');
  assert.deepEqual(new Set(primary.map(b=>b.name)),new Set(['Levski',"People's Service Station Alpha","People's Service Station Delta","People's Service Station Theta","People's Service Station Lambda"]));
  for(const b of primary)assert.ok(map.hits.some(h=>h.body?.id===b.id&&!h.box),b.name+' overview marker');
- assert.ok(!map.hits.some(h=>h.body?.name.startsWith('QV Breaker Station')));
+ const secondary=catalog.bodies.filter(secondaryLandmark);assert.equal(secondary.length,8);
+ for(const b of secondary){assert.ok(map.hits.some(h=>h.body?.id===b.id&&!h.box),b.name+' overview marker');assert.ok(labelPriority(b)>labelPriority(primary[0]));}
 });

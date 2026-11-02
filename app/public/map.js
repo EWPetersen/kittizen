@@ -9,9 +9,10 @@ import {drawBelts} from './belts.js';
 import {drawSnare} from './interdiction.js';
 import {globeResolution,modelResolution} from './render-budget.js';
 export const LOCATION_FOCUS_PULLBACK=3.5;
+export function secondaryLandmark(body){return body.system==='nyx'&&body.kind==='station'&&/^(QV Breaker Station BRK-|Transit Point Glaciem )/.test(body.name);}
 // Stable candidate order and remembered anchor choices reduce label swapping while orbiting.
 export function labelPriority(body,selected=false) {
-  return body.kind==='planet'||body.kind==='body'?0:body.kind==='gateway'?1:body.kind==='star'?2:body.mapImportance==='primary'?3:body.kind==='moon'?4:selected?5:body.kind==='lagrange'?6:body.kind==='om'?7:8;
+  return body.kind==='planet'||body.kind==='body'?0:body.kind==='gateway'?1:body.kind==='star'?2:body.mapImportance==='primary'?3:body.kind==='moon'?4:selected?5:body.kind==='lagrange'||secondaryLandmark(body)?6:body.kind==='om'?7:8;
 }
 // Stanton's cities/orbital hubs belong to their planet view. Pyro/Nyx's
 // sparse primary hubs also serve as system-level navigation landmarks.
@@ -21,6 +22,7 @@ export function prominentLocation(body,parent,span) {
 }
 export function detailSpan(body,container) {
   if(['planet','star','body','gateway','lagrange'].includes(body.kind))return Infinity;
+  if(secondaryLandmark(body))return Infinity;
   if(body.mapImportance==='primary'){
     if(body.system!=='stanton')return Infinity;
     if(container?.radius>0)return container.radius*25;
@@ -375,6 +377,7 @@ export class StarMap {
     return distance < parent.radius && point[2] - center[2] < Math.sqrt(parent.radius ** 2 - distance ** 2) - 50;
   }
   pan(dx, dy) {
+    if(this.system==='universe')dy=-dy;
     this.noteMotion();
     this.transition=null;
     const scale = Math.min(this.w, this.h) / this.span,
@@ -504,7 +507,7 @@ export class StarMap {
     const c = this.ctx,
       connections = new Set();
     const short=this.h<340&&this.w>this.h*1.5;
-    const point=s=>short?[this.w*(this.systems.indexOf(s)+1)/(this.systems.length+1),this.h*.40]:this.project(s.position);
+    const point=s=>{if(short)return [this.w*(this.systems.length-this.systems.indexOf(s))/(this.systems.length+1),this.h*.40];const [x,y]=this.project(s.position);return [x,this.h-y];};
     for (const gate of this.bodies.filter(b => b.kind === 'gateway')) {
       const a = this.systems.find(s => s.id === gate.system),
         b = this.systems.find(s => s.id === gate.destinationSystem);
@@ -685,7 +688,7 @@ export class StarMap {
       }
       if (b.category === 'auxiliary' && this.selected !== b.id) continue;
       const major = prominent(b);
-      const pinned=important(b),selected=this.selected===b.id;
+      const pinned=important(b)||secondaryLandmark(b),selected=this.selected===b.id;
       const parent = this.surfaceParent(b);
       const orbitFacility=this.view?.level==='orbits'&&parent&&!(b.radius>0)&&b.kind!=='om';
       if (!pinned&&!major&&parent && this.span > parent.radius * 25 && b.kind !== 'moon') continue;
@@ -710,7 +713,7 @@ export class StarMap {
         const active=this.systems.some(s=>s.id===b.destinationSystem),reducedMotion=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
         const moving=animatePortal({selected,radius:r,visible:document.visibilityState==='visible',reducedMotion,dragging:this.pointers.size>0,connected:active});
         const seed=[...b.id].reduce((sum,char)=>sum+char.charCodeAt(0),0)*.37;
-        drawJumpPortal(c,x,y,r,{phase:moving?performance.now()/1000+seed:seed,active,pitch:this.pitch,yaw:this.yaw});portalMoving||=moving;
+        drawJumpPortal(c,x,y,r,{phase:moving?performance.now()/1000+seed:seed,active,pitch:this.pitch,yaw:this.yaw,system:b.system});portalMoving||=moving;
       }else if(model){
         r=detailedModel?Math.max(14,Math.min(Math.min(this.w,this.h)*.40/(model.meshExtent||model.meshRadius||.5),(b.modelSize||1000)*this.scale)):selected&&parent&&this.span<parent.radius?28:pinned||major?12:9;
         c.drawImage(model,x-r,y-r,r*2,r*2);
@@ -769,7 +772,7 @@ export class StarMap {
       if(!allowed){this.labelVisibility.delete(b.id);continue;}
       this.labelVisibility.add(b.id);
       c.font = (prominentLabel ? '12' : '10') + 'px Arial';
-      const fullText=b.name.replace(/^People's Service Station /,"People's ");let text=fullText;const limit=selected?190:145;
+      const fullText=b.name.replace(/^People's Service Station /,"People's ").replace(/^QV Breaker Station /,'QV ').replace(/^Transit Point Glaciem /,'Glaciem ');let text=fullText;const limit=selected?190:145;
       while(text.length>4&&c.measureText(text).width>limit)text=text.slice(0,-2);
       if(text!==fullText)text+='…';
       labels.push({id:b.id,x,y,r:displayR,text,width:c.measureText(text).width,body:b,selected,important:pinned,major:prominentLabel,priority:priority(b)});

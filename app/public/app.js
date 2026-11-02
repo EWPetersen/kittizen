@@ -4,7 +4,7 @@ import {
 import {
   positionOnRoute
 } from './route.js';
-import {planSnare,referenceMarkers,trilaterate,assessPosition,parseCoordinates,destinationReference} from './interdiction.js';
+import {optimizeSnare,referenceMarkers,trilaterate,assessPosition,parseCoordinates,destinationReference,parseDistance,distanceUnit,distanceValue,formatDistance,navigationCandidates,drawSnareSection} from './interdiction.js';
 const $ = s => document.querySelector(s),
   el = (tag, text, cls) => {
     let n = document.createElement(tag);
@@ -176,17 +176,11 @@ async function loadReports() {
   const generation = ++loadGeneration,
     s = currentShard;
   const universe=map?.system==='universe',system=map?.system;
-  if (!s&&!universe) {
-    reports=[];
-    $('#connection').textContent = 'SELECT A SHARD';
-    renderReports();
-    return;
-  }
   try {
-    let list = await api(universe?'reports?scope=universe':'reports?shard=' + encodeURIComponent(s));
+    let list = await api(universe||!s?'reports?scope=universe':'reports?shard=' + encodeURIComponent(s));
     if (generation !== loadGeneration || s !== currentShard||system!==map.system) return;
     reports = list;
-    $('#connection').textContent = universe?'ALL SHARDS · UNIVERSE':'CONNECTED · ' + s;
+    $('#connection').textContent = universe||!s?'ALL SHARDS · '+system.toUpperCase():'CONNECTED · ' + s;
     renderReports();
   } catch (e) {
     if (generation !== loadGeneration) return;
@@ -210,7 +204,7 @@ function renderReports() {
   }
   if (!shown.length) {
     let n = el('div', undefined, 'empty');
-    n.append(el('strong', currentShard ? 'No recent reports' : 'Choose your shard'), el('span', currentShard ? 'Nothing reported here in the last 2 hours. That does not mean the area is safe.' : 'Choose your region and shard number in Navigate to see activity from other pilots.'));
+    n.append(el('strong','No recent reports'),el('span',currentShard?'Nothing reported here in the last 2 hours. That does not mean the area is safe.':'Showing activity across all shards in this view. Join a shard when you want to submit a report.'));
     $('#reports').append(n);
   }
   for (let r of shown.slice(0,200)) {
@@ -363,7 +357,7 @@ function search() {
     }
     return;
   }
-  let list = bodies.filter(b => !b.hidden && b.name.toLowerCase().replace(/[\s_-]/g, '').includes(q) && (!q ? b.system === map.system && (['planet', 'star'].includes(b.kind)||b.mapImportance==='primary'||recentLocations.includes(b.id)) : true)).slice(0, 24);
+  let list = bodies.filter(b => !b.hidden && b.name.toLowerCase().replace(/[\s_-]/g, '').includes(q) && (!q ? b.system === map.system && (['planet', 'star'].includes(b.kind)||b.mapImportance==='primary'||b.system==='nyx'&&b.kind==='station'||recentLocations.includes(b.id)) : true)).slice(0, 24);
   for (let b of list) {
     let row = el('button', undefined, 'result');
     row.append(el('span', b.name), el('small', bodies.find(p => p.id === b.parent)?.name || b.kind));
@@ -493,6 +487,20 @@ async function loadRoutes() {
     $('#saved-routes').append(row);
   }
   if (!list.length) $('#saved-routes').append(el('p', user ? 'No saved jumps yet.' : 'Sign in to save and recall jumps.', 'hint'));
+  await loadInterceptions();
+}
+async function loadInterceptions(){
+  const list=$('#saved-interceptions');if(!list)return;
+  const entries=user?await api('interceptions'):[];$('#saved-interception-count').textContent=entries.length;list.replaceChildren();
+  for(const entry of entries){const row=el('div',undefined,'saved'),load=el('button',entry.name),remove=el('button','×');remove.type='button';remove.setAttribute('aria-label','Delete interception '+entry.name);
+    load.onclick=async()=>{try{const input=entry.inputs;if([input.origin,input.destination,...input.origins].some(id=>!bodies.some(b=>b.id===id)))throw Error('A saved location is missing from this game build. Create a new plan.');await plot(input.origin,input.destination);if(!activeRoute||activeRoute.origin!==input.origin)return;openSnarePlanner();snareOrigins=[...input.origins];renderSnareOrigins();const select=$('#snare-leg');select.value=String(input.leg);if(select.value==='')throw Error('The saved quantum leg changed. Review this route and select a leg.');for(const [key,id] of [['margin','margin'],['startSpread','start-spread'],['endSpread','end-spread'],['minTravel','min-travel'],['endBuffer','end-buffer']])setDistance($('#snare-'+id),input.settings[key]);$('#snare-placement').value=input.settings.placement;if(input.generation!==catalog.generation){toast('Game data changed. Review the saved assumptions and optimize again.');return;}await calculateSnare({preventDefault(){}});}catch(error){toast(error.message);}};
+    remove.onclick=async()=>{try{await api('interceptions/delete',{id:entry.id});await loadInterceptions();}catch(error){toast(error.message);}};row.append(load,remove);list.append(row);
+  }
+  if(!entries.length)list.append(el('p',user?'No saved interception plans yet.':'Sign in to save and recall interception plans.','hint'));
+}
+async function saveInterception(){
+  if(!needUser())return;const plan=map.snarePlan;if(!plan?.savedInputs)return toast('Optimize a plan first.');const button=$('#snare-save');button.disabled=true;
+  try{const origin=bodies.find(b=>b.id===plan.savedInputs.origin),destination=bodies.find(b=>b.id===plan.savedInputs.destination),name=(origin.name+(snareOrigins.length?' + '+snareOrigins.length+' origins':'')+' → '+destination.name+' · '+formatDistance(plan.reference.distance)).slice(0,100);await api('interceptions',{name,inputs:plan.savedInputs});await loadInterceptions();toast('Interception saved to your pilot account');}catch(error){toast(error.message);}finally{button.disabled=false;}
 }
 
 function routeDistance() {
@@ -602,8 +610,46 @@ $('#trust-info').onclick = () => $('#info-dialog').showModal();
 
 // Small touch enhancements share the existing form controls and API paths.
 let pickerTarget=null,recentLocations=[];
-let snareReferences=[];
-function clearSnare(){if(map){map.snarePlan=null;map.invalidate();}snareReferences=[];if($('#snare-results'))$('#snare-results').hidden=true;if($('#snare-check-result'))$('#snare-check-result').textContent='';if($('#snare-dialog')?.open)$('#snare-dialog').close();}
+let snareReferences=[],snareOrigins=[],snareCalculation=0,snareRoutes=new Map();
+function invalidateSnare(){snareCalculation++;if(map){map.snarePlan=null;map.invalidate();}snareReferences=[];if($('#snare-results'))$('#snare-results').hidden=true;if($('#snare-calculate'))$('#snare-calculate').disabled=false;}
+function renderSnareOrigins(){
+  const list=$('#snare-extra-origins');if(!list)return;list.replaceChildren();
+  const primary=bodies?.find(b=>b.id===activeRoute?.origin);$('#snare-primary-origin').textContent=primary?'Primary origin: '+primary.name:'';
+  $('#snare-moons').hidden=!primary||!bodies.some(b=>b.parent===primary.id&&['moon','planet'].includes(b.kind));
+  for(const id of snareOrigins){const body=bodies.find(b=>b.id===id);if(!body)continue;const row=el('div',undefined,'inline'),remove=el('button','Remove');remove.type='button';remove.setAttribute('aria-label','Remove target origin '+body.name);remove.onclick=()=>{snareOrigins=snareOrigins.filter(value=>value!==id);invalidateSnare();renderSnareOrigins();};row.append(el('span',body.name),remove);list.append(row);}
+}
+function addSnareOrigin(id){if(id===activeRoute?.origin||snareOrigins.includes(id))return toast('That origin is already selected');if(snareOrigins.length>=5)return toast('Up to six origins, including the primary, are supported');snareOrigins.push(id);invalidateSnare();renderSnareOrigins();}
+function readDistance(input){
+  const value=parseDistance(input.value,$('#'+input.id+'-unit').value);
+  if(input.dataset.maxMetres&&value>Number(input.dataset.maxMetres))throw Error('This distance is above the allowed maximum.');
+  return value;
+}
+function setDistance(input,metres,unit=distanceUnit(metres)){
+  const select=$('#'+input.id+'-unit');select.value=unit;select.dataset.previous=unit;input.value=distanceValue(metres,unit);input.dispatchEvent(new Event('distance-preview'));
+}
+function makeDistanceField(input,metres=null,preferred='km'){
+  const wrapper=el('div',undefined,'distance-input'),select=el('select'),hint=el('small',undefined,'distance-preview');select.id=input.id+'-unit';hint.id=input.id+'-preview';
+  const label=document.querySelector('label[for="'+input.id+'"]');if(label)label.textContent=label.textContent.replace(/ \(km\)$/,'');
+  select.setAttribute('aria-label','Distance unit for '+(label?.textContent||'measurement'));input.setAttribute('aria-describedby',hint.id);
+  for(const unit of ['km','Mm','Gm'])select.append(option(unit,unit));select.value=preferred;select.dataset.previous=preferred;
+  if(input.hasAttribute('max'))input.dataset.maxMetres=Number(input.max)*1000;
+  input.type='text';input.inputMode='decimal';input.removeAttribute('step');input.removeAttribute('min');input.removeAttribute('max');input.maxLength=100;input.placeholder='Enter distance';
+  input.before(wrapper);wrapper.append(input,select);wrapper.after(hint);
+  const preview=()=>{
+    if(!input.value.trim()){hint.textContent='1 Gm = 1,000 Mm = 1,000,000 km';hint.classList.remove('error');return;}
+    try{const m=readDistance(input);hint.textContent='= '+formatDistance(m,'km')+' · '+formatDistance(m,m>=1e9?'Gm':'Mm');hint.classList.remove('error');}
+    catch(error){hint.textContent=error.message;hint.classList.add('error');}
+  };
+  input.addEventListener('input',preview);input.addEventListener('distance-preview',preview);
+  input.addEventListener('blur',()=>{try{if(input.value.trim()){const explicit=input.value.trim().match(/(km|Mm|Gm)$/)?.[1];setDistance(input,readDistance(input),explicit||select.value);}}catch{preview();}});
+  select.onchange=()=>{
+    const next=select.value,previous=select.dataset.previous;
+    try{if(input.value.trim()){const m=parseDistance(input.value,previous);setDistance(input,m,next);}else select.dataset.previous=next;preview();}
+    catch(error){select.value=previous;preview();}
+  };
+  if(metres!==null)setDistance(input,metres,preferred);else preview();
+}
+function clearSnare(){invalidateSnare();snareOrigins=[];snareRoutes.clear();if($('#snare-check-result'))$('#snare-check-result').textContent='';if($('#snare-dialog')?.open)$('#snare-dialog').close();}
 function snareButton(){const button=el('button','Plan interception');button.type='button';button.className='snare-open';button.onclick=openSnarePlanner;return button;}
 function openSnarePlanner(){
   if(!activeRoute?.plan){panel('sidebar');$('#pick-origin').focus();return toast('Choose the target departure and destination, then plot its route.');}
@@ -616,47 +662,71 @@ function openSnarePlanner(){
   const device=catalog.interdiction;$('#snare-device').textContent=device.ship+' · '+device.snareRadius/1000+' km snare radius · '+device.chargeSeconds+' s charge + '+device.activationSeconds+' s activation · '+device.dampenerRadius/1000+' km dampener. Installed build '+catalog.build+'.';$('#snare-green-zone').textContent=device.greenZoneCheckRange/1000+' km';
   $('#snare-dialog').showModal();
   $('#snare-results').hidden=true;snareReferences=[];snareDefaults();
+  renderSnareOrigins();
 }
 function snareDefaults(){
   const leg=activeRoute?.plan.legs[Number($('#snare-leg').value)];
   const origin=bodies?.find(b=>b.id===activeRoute?.origin),parent=bodies?.find(b=>b.id===origin?.parent);
   const spread=leg?.startName.includes('OM-')?2000:Math.max(2000,(origin?.radius||parent?.radius||0)*1.5);
-  $('#snare-start-spread').value=(spread/1000).toFixed(1);$('#snare-end-spread').value='10';
+  setDistance($('#snare-start-spread'),spread);setDistance($('#snare-end-spread'),10000);
   if($('#snare-results'))$('#snare-results').hidden=true;
 }
 function focusSnare(position=map.snarePlan?.position){
   const plan=map.snarePlan;if(!plan||!position)return;
   $('#snare-dialog').close();if(map.system!==plan.system)map.setSystem(plan.system);
   map.flyTo({...map.camera(),center:[...position],span:plan.radius*10});
-  $('#map-name').textContent='Interdiction plan';$('#map-subtitle').textContent=plan.reference?'Aim for '+(plan.reference.distance/1000).toLocaleString(undefined,{maximumFractionDigits:3})+' km from '+plan.reference.body.name+' centre · stay on the plotted leg':plan.leg.startName+' → '+plan.leg.endName+' · geometric estimate';
+  $('#map-name').textContent='Interdiction plan';$('#map-subtitle').textContent=plan.reference?'Aim for '+formatDistance(plan.reference.distance)+' from '+plan.reference.body.name+' centre · stay on the plotted leg':plan.leg.startName+' → '+plan.leg.endName+' · geometric estimate';
   const actions=mapActionRoot();actions.hidden=false;actions.replaceChildren(snareButton(),mapResetButton());panel('map-area');
 }
-function calculateSnare(e){
+async function calculateSnare(e){
   e.preventDefault();$('#snare-error').textContent='';$('#snare-results').hidden=true;$('#snare-check-result').textContent='';
+  const request=++snareCalculation,routeContext=activeRoute;$('#snare-calculate').disabled=true;
   try{
-    const read=id=>{const input=$('#snare-'+id);if(input.value.trim()===''||!input.checkValidity())throw Error('Check the '+id.replaceAll('-',' ')+' value.');return Number(input.value)*1000;};
-    const leg=activeRoute.plan.legs[Number($('#snare-leg').value)],plan=planSnare(leg,{radius:catalog.interdiction.snareRadius,margin:read('margin'),startSpread:read('start-spread'),endSpread:read('end-spread'),minTravel:read('min-travel'),endBuffer:read('end-buffer'),bodies});
+    const read=id=>{try{return readDistance($('#snare-'+id));}catch(error){throw Error(id.replaceAll('-',' ')+': '+error.message);}};
+    const leg=activeRoute.plan.legs[Number($('#snare-leg').value)],target=bodies.find(b=>b.id===activeRoute.destination),primary=bodies.find(b=>b.id===activeRoute.origin),options={radius:catalog.interdiction.snareRadius,margin:read('margin'),startSpread:read('start-spread'),endSpread:read('end-spread'),minTravel:read('min-travel'),endBuffer:read('end-buffer'),placement:Number($('#snare-placement').value),bodies};
+    if(snareOrigins.length&&(leg.system!==target.system||leg!==activeRoute.plan.legs.filter(l=>l.kind==='quantum').at(-1)))throw Error('For multiple origins, select the final incoming quantum leg in the destination system.');
+    const getPlan=async(origin,destination)=>{const key=origin+'>'+destination;if(!snareRoutes.has(key))snareRoutes.set(key,api('plan',{origin,destination}).catch(error=>{snareRoutes.delete(key);throw error;}));return snareRoutes.get(key);};
+    const approaches=[{leg,name:primary.name,startSpread:options.startSpread,endSpread:options.endSpread}];
+    const extras=await Promise.all(snareOrigins.map(async id=>{const origin=bodies.find(b=>b.id===id);if(origin.system!==target.system)throw Error('Alternative origins must be in the destination system.');const route=await getPlan(id,target.id),incoming=route.legs.filter(l=>l.kind==='quantum'&&l.system===target.system).at(-1);if(!incoming)throw Error(origin.name+' has no incoming quantum leg.');const parent=bodies.find(b=>b.id===origin.parent);return {leg:incoming,name:origin.name,startSpread:Math.max(2000,(origin.radius||parent?.radius||0)*1.5),endSpread:options.endSpread};}));
+    if(request!==snareCalculation||routeContext!==activeRoute)return;
+    approaches.push(...extras);const plan=optimizeSnare(approaches,options);
+    plan.savedInputs={origin:activeRoute.origin,destination:activeRoute.destination,origins:[...snareOrigins],leg:Number($('#snare-leg').value),settings:Object.fromEntries(['margin','startSpread','endSpread','minTravel','endBuffer','placement'].map(key=>[key,options[key]])),generation:catalog.generation||''};
     map.snarePlan=plan;map.invalidate();
     const reference=destinationReference(plan,bodies.find(b=>b.id===activeRoute.destination),bodies);plan.reference=reference;
-    const km=value=>(value/1000).toLocaleString(undefined,{minimumFractionDigits:3,maximumFractionDigits:3});
+    const km=value=>(value/1000).toLocaleString('en-US',{minimumFractionDigits:3,maximumFractionDigits:3});
     $('#snare-reference-name').textContent=(reference.localReference?'LOCAL REFERENCE · ':'DESTINATION REFERENCE · ')+reference.body.name;
-    $('#snare-reference-distance').textContent=km(reference.distance)+' km from centre';
-    $('#snare-reference-window').textContent='Eligible distance band on this leg: '+km(reference.minimum)+'–'+km(reference.maximum)+' km from '+reference.body.name+' centre. Aim for the suggested distance above.';
+    $('#snare-reference-distance').textContent=formatDistance(reference.distance)+' from centre';
+    $('#snare-reference-exact').textContent='Equivalent to '+km(reference.distance)+' km';
+    $('#snare-reference-window').textContent=(reference.rangeApproximate?'Approximate reference band across the validated setup interval: ':'Eligible distance band on this leg: ')+formatDistance(reference.minimum)+' – '+formatDistance(reference.maximum)+' from '+reference.body.name+' centre. Aim for the suggested distance above.';
     $('#snare-reference-note').textContent=(reference.localReference?'The final destination is in another system; use this local marker for the selected leg. ':'')+'Compare the HUD centre-marker range, not altitude or distance to the QT arrival boundary. Distance alone cannot prove alignment: stay on the selected route and verify your position below.'+(reference.moving?' This marker may rotate or move; its range uses the installed static position.':'');
     const stats=$('#snare-stats');stats.replaceChildren();
-    for(const [label,value] of [['Travel from QT leg start',plan.fromStart],['Distance to modeled leg end',plan.toEnd],['Assumed corridor radius here',plan.spread],['Remaining placement budget',plan.placementBudget]])stats.append(el('dt',label),el('dd',(value/1000).toLocaleString(undefined,{maximumFractionDigits:3})+' km'));
-    $('#snare-instructions').textContent='Follow the quantum leg '+leg.startName+' → '+leg.endName+'. Set up when '+reference.body.name+' reads approximately '+km(reference.distance)+' km to its centre. Then check alignment using coordinates or the three marker ranges below. This creates a map plan, not an in-game waypoint.';
+    for(const [label,value] of [['Travel from QT leg start',plan.fromStart],['Distance to modeled leg end',plan.toEnd],['Assumed corridor radius here',plan.spread],['Remaining placement budget',plan.placementBudget]])stats.append(el('dt',label),el('dd',formatDistance(value)));
+    $('#snare-instructions').textContent='Follow the quantum leg '+leg.startName+' → '+leg.endName+'. Set up when '+reference.body.name+' reads approximately '+formatDistance(reference.distance)+' to its centre. Then check alignment using coordinates or the three marker ranges below. This creates a map plan, not an in-game waypoint.';
+    $('#snare-coverage').textContent=approaches.length+'/'+approaches.length+' selected approaches fit · '+formatDistance(plan.spread)+' of '+formatDistance(plan.radius)+' radius used ('+(plan.spread/plan.radius*100).toFixed(1)+'%) · '+formatDistance(plan.margin)+' reserved margin · '+formatDistance(plan.placementBudget)+' extra placement tolerance.';
+    $('#snare-placement').disabled=false;$('#snare-placement-value').textContent=options.placement===100?'Furthest validated setup':options.placement===0?'Closest validated setup':options.placement+'% toward furthest setup';
+    drawSnareSection($('#snare-section').getContext('2d'),plan,340,230);
+    $('#snare-approach-list').replaceChildren(...plan.section.discs.map(d=>el('li',d.name+' · '+formatDistance(d.radius)+' assumed spread at setup')));
+    const nav=$('#snare-navigation');nav.replaceChildren(el('p',plan.offset>1?'The optimized field is '+formatDistance(plan.offset)+' off the primary route. A range match alone will not put you at this offset.':'The optimized field is on the primary route. Use the destination range above, then verify alignment.'));
+    let navigation=null;
+    for(const candidate of navigationCandidates(plan,[primary,...snareOrigins.map(id=>bodies.find(b=>b.id===id))],target,bodies).slice(0,4)){
+      const route=await getPlan(candidate.from.id,candidate.toward.id).catch(()=>null);if(!route)continue;const legs=route.legs.filter(l=>l.kind==='quantum');if(legs.length!==1)continue;
+      const q=legs[0],v=q.end.map((value,i)=>value-q.start[i]),length2=v.reduce((s,n)=>s+n*n,0),t=candidate.waypoint.reduce((s,n,i)=>s+(n-q.start[i])*v[i],0)/length2,miss=Math.hypot(...candidate.waypoint.map((n,i)=>n-q.start[i]-t*v[i]));if(t>0&&t<1&&miss<10){navigation=candidate;break;}
+    }
+    if(request!==snareCalculation||routeContext!==activeRoute)return;
+    if(navigation){const steps=el('ol');steps.append(el('li','QT from '+navigation.from.name+' toward '+navigation.toward.name+'. Stop when '+navigation.toward.name+' is '+formatDistance(navigation.remaining)+' from its centre.'),el('li','From that stopped waypoint, QT toward '+target.name+'. Stop at '+formatDistance(reference.distance)+' from '+target.name+' centre.'),el('li','Verify your coordinates before activating the snare. These jumps use static, approximate QT geometry.'));nav.append(steps);$('#snare-instructions').textContent='Use the two-jump setup guide below to reach the optimized approach line. This is a navigation estimate; verify the final position.';}
+    else if(plan.offset>1)nav.append(el('p','No safe two-marker setup was validated. Use the setup coordinates and position correction below; do not fly directly down the primary route and assume it reaches this offset.','hint'));
     $('#snare-coordinates').textContent=plan.system.toUpperCase()+' · metres\nX '+plan.position[0].toFixed(3)+'\nY '+plan.position[1].toFixed(3)+'\nZ '+plan.position[2].toFixed(3);
     $('#snare-references').replaceChildren();
     try{snareReferences=referenceMarkers(bodies,plan);}catch(error){snareReferences=[];$('#snare-references').append(el('p',error.message,'hint'));}
     for(const [index,ref] of snareReferences.entries()){
-      const label=el('label',ref.body.name+' · expected '+(ref.distance/1000).toFixed(3)+' km');label.htmlFor='snare-range-'+index;
+      const label=el('label',ref.body.name+' · expected '+formatDistance(ref.distance));label.htmlFor='snare-range-'+index;
       const input=el('input');input.id=label.htmlFor;input.type='number';input.min='0';input.step='any';input.inputMode='decimal';input.placeholder='Measured centre-marker range (km)';
-      $('#snare-references').append(label,input);
+      $('#snare-references').append(label,input);makeDistanceField(input,null,distanceUnit(ref.distance));
     }
     $('#snare-verify').disabled=false;$('#snare-position').value='';
     $('#snare-results').hidden=false;$('#snare-results').scrollIntoView({block:'start'});
-  }catch(error){map.snarePlan=null;snareReferences=[];map.invalidate();$('#snare-error').textContent=error.message;}
+  }catch(error){if(request!==snareCalculation)return;map.snarePlan=null;snareReferences=[];map.invalidate();$('#snare-error').textContent=error.message;}
+  finally{if(request===snareCalculation)$('#snare-calculate').disabled=false;}
 }
 function verifySnare(e){
   e.preventDefault();const output=$('#snare-check-result');output.replaceChildren();
@@ -667,7 +737,7 @@ function verifySnare(e){
       output.append(el('strong',a.covered?'Coordinates are inside modeled corridor coverage.':'Coordinates are outside modeled corridor coverage.'),el('p',(a.crossTrack/1000).toFixed(3)+' km off route · '+(a.distanceToPlan/1000).toFixed(3)+' km from planned point.'),el('p','Correction to planned point (world metres): X '+delta[0].toFixed(1)+', Y '+delta[1].toFixed(1)+', Z '+delta[2].toFixed(1)+'. Same-system coordinates required; no live telemetry.'));output.scrollIntoView({block:'start'});return;
     }
     if(snareReferences.length!==3)throw Error('No suitable range references. Enter same-system coordinates instead.');
-    const ranges=snareReferences.map((_,i)=>{const input=$('#snare-range-'+i);if(!input.value.trim()||!input.checkValidity())throw Error('Enter all three measured ranges in kilometres.');return Number(input.value)*1000;});
+    const ranges=snareReferences.map((_,i)=>readDistance($('#snare-range-'+i)));
     const solution=trilaterate(snareReferences.map(r=>r.body.position),ranges,1000),assessments=solution.solutions.map(p=>assessPosition(map.snarePlan,p));
     output.append(el('strong',solution.ambiguous?'Two possible positions — mirror ambiguity remains.':'One geometric position found.'),el('p','Maximum range residual '+(solution.residual/1000).toFixed(3)+' km · 1 km input tolerance. HUD rounding and marker-centre accuracy may dominate.'));
     for(const [i,a] of assessments.entries()){
@@ -682,21 +752,29 @@ function setupSnarePlanner(){
   dialog.innerHTML=`<div class="dialog-heading"><h2 id="snare-title">Interdiction planner</h2><button type="button" id="snare-close" aria-label="Close interdiction planner">×</button></div>
     <p>Plan a Mantis snare along a target's plotted route. A dampener alone cannot pull ships out of quantum.</p><p id="snare-device" class="hint"></p><p class="hint">Static geometry estimate. Rotating cities/stations, unknown departure positions and server behavior can invalidate it. Approximate body exclusions do not prove physics-grid or armistice clearance.</p>
     <form id="snare-form"><label for="snare-leg">TARGET QUANTUM LEG</label><select id="snare-leg"></select>
+    <section><h3>Possible target origins</h3><p id="snare-primary-origin"></p><div id="snare-extra-origins"></div><div class="inline"><button id="snare-add-origin" type="button">Add origin</button><button id="snare-moons" type="button">Include departure's moons</button></div><p class="hint">Up to six origins toward the same destination. Alternative origins use derived departure spread from body size. The final incoming QT leg is modeled; optional belt turns and live course changes are not predicted.</p></section>
     <details><summary>Route uncertainty &amp; assumptions</summary><p>These are planning inputs, not measured game limits. A route from a whole planet has much more departure uncertainty than a specific marker.</p>
     <label for="snare-start-spread">DEPARTURE SPREAD RADIUS (km)</label><input id="snare-start-spread" type="number" min="0" max="1000000000" step="any" inputmode="decimal" required>
     <label for="snare-end-spread">ARRIVAL SPREAD RADIUS (km)</label><input id="snare-end-spread" type="number" min="0" max="1000000000" step="any" inputmode="decimal" required>
     <label for="snare-margin">SAFETY MARGIN INSIDE SNARE (km)</label><input id="snare-margin" type="number" min="0" step="any" value="2" inputmode="decimal" required>
     <label for="snare-min-travel">MINIMUM QT TRAVEL BEFORE CATCH (km)</label><input id="snare-min-travel" type="number" min="0" step="any" value="10000" inputmode="decimal" required>
     <label for="snare-end-buffer">MINIMUM DISTANCE BEFORE LEG END (km)</label><input id="snare-end-buffer" type="number" min="0" step="any" value="100" inputmode="decimal" required></details>
-    <p id="snare-error" class="error" role="alert"></p><button id="snare-calculate" class="primary full">Calculate snare position</button></form>
-    <section id="snare-results" hidden><h3>Suggested setup point</h3><div class="snare-reference"><small id="snare-reference-name"></small><strong id="snare-reference-distance"></strong><p id="snare-reference-window"></p><p id="snare-reference-note" class="hint"></p></div><dl id="snare-stats" class="profile-stats"></dl><p id="snare-instructions"></p><button id="snare-focus" class="primary full" type="button">Show snare on map</button>
-    <h3>Check your position</h3><p>Use distances to the named marker centres, in kilometres. Leave measurements blank until you read them in game. Three ranges can produce two mirrored positions; both are reported.</p>
+    <label for="snare-placement">SETUP RANGE <output id="snare-placement-value">Furthest validated setup</output></label><input id="snare-placement" type="range" min="0" max="100" step="1" value="100" disabled><p class="hint">Left: closer to destination with more placement room. Right: furthest setup that fits the selected approaches inside the field, after your safety margin. Changing this control recalculates the setup.</p>
+    <p id="snare-error" class="error" role="alert"></p><button id="snare-calculate" class="primary full">Optimize snare position</button></form>
+    <section id="snare-results" hidden><h3>Optimized setup point</h3><p id="snare-coverage" class="snare-coverage"></p><canvas id="snare-section" width="340" height="230" role="img" aria-label="Cross-section of selected traffic corridors inside the snare field"></canvas><ol id="snare-approach-list"></ol><div class="snare-reference"><small id="snare-reference-name"></small><strong id="snare-reference-distance"></strong><p id="snare-reference-exact" class="hint"></p><p id="snare-reference-window"></p><p id="snare-reference-note" class="hint"></p></div><dl id="snare-stats" class="profile-stats"></dl><p id="snare-instructions"></p><h3>Getting into position</h3><div id="snare-navigation"></div><button id="snare-focus" class="primary full" type="button">Show snare on map</button><button id="snare-save" class="full" type="button">Save interception</button>
+    <h3>Check your position</h3><p>Match the unit shown in game: choose km, Mm or Gm, or paste a value such as 4.327 Gm. Commas group thousands; a dot marks decimals. Leave measurements blank until you read them in game. Three ranges can produce two mirrored positions; both are reported.</p>
     <form id="snare-check-form" novalidate><div id="snare-references"></div><label for="snare-position">OR YOUR SAME-SYSTEM X, Y, Z (metres)</label><textarea id="snare-position" rows="2" maxlength="200" placeholder="X, Y, Z — optional coordinate alternative"></textarea><p class="hint">Coordinates take precedence over range measurements. Keep the same system and world reference frame as the plan. Prefer coordinates for narrow corridors: distant-marker range rounding can create large position errors.</p><button id="snare-verify" class="full">Check my position</button></form><div id="snare-check-result" role="status" aria-live="polite"></div><details><summary>Setup coordinates (metres)</summary><pre id="snare-coordinates"></pre></details></section>
-    <details><summary>How this estimate works &amp; sources</summary><p>The corridor radius interpolates linearly between your departure and arrival spread. The planner keeps that corridor inside the snare with your margin, excludes local flight and jump tunnels, removes body-clearance intervals, then selects the midpoint of the widest remaining interval.</p><p>Body clearance uses the greater of four body radii, extracted obstruction radius or arrival radius, plus snare radius and margin. This is a heuristic, not a measured physics-grid or armistice boundary. Rotating cities/stations, live departure geometry, server state and patch-specific minimum snare travel can invalidate the estimate. The 10,000 km minimum is an editable community planning assumption.</p><p>Green-zone check range in the installed device: <span id="snare-green-zone"></span>. Armistice-zone volumes are not mapped; this tool cannot establish whether activation is permitted at a point. A snare also catches unrelated passing traffic.</p><p>Device values come from the installed Reynie DataCore record. <a href="https://robertsspaceindustries.com/en/comm-link/engineering/17270-Q-A-RSI-Mantis" target="_blank" rel="noopener noreferrer">RSI Mantis Q&amp;A</a> · <a href="https://snareplan.dolus.eu/" target="_blank" rel="noopener noreferrer">SnarePlan operator reference</a>. Geometry is independently implemented; no live ship tracking or catch probability is provided.</p></details>`;
+    <details><summary>How this estimate works &amp; sources</summary><p>Each straight approach has departure and arrival uncertainty. An enclosing-disc solver shifts the field between paths, then a bounded convex search finds the furthest validated common cross-section. Oblique sections expand uncertainty conservatively. This is a conservative cross-section model, not an exact reproduction of SnarePlan's triangle solver or a globally optimal live-game prediction. Field utilization is geometric radius usage, not catch probability.</p><p>Body clearance uses the greater of four body radii, extracted obstruction radius or arrival radius, plus snare radius and margin; multiple-origin searches add clearance for the possible field-centre offset. This is a heuristic, not a measured physics-grid or armistice boundary. Rotating cities/stations, live departure geometry, server state and patch-specific minimum snare travel can invalidate the estimate. The 10,000 km minimum is an editable community planning assumption.</p><p>Green-zone check range in the installed device: <span id="snare-green-zone"></span>. Armistice-zone volumes are not mapped; this tool cannot establish whether activation is permitted at a point. A snare also catches unrelated passing traffic.</p><p>Device values come from the installed Reynie DataCore record. <a href="https://robertsspaceindustries.com/en/comm-link/engineering/17270-Q-A-RSI-Mantis" target="_blank" rel="noopener noreferrer">RSI Mantis Q&amp;A</a> · <a href="https://snareplan.dolus.eu/" target="_blank" rel="noopener noreferrer">SnarePlan operator reference</a>. Geometry is independently implemented; no live ship tracking or catch probability is provided.</p></details>`;
   document.body.append(dialog);$('#snare-close').onclick=()=>dialog.close();$('#snare-form').onsubmit=calculateSnare;$('#snare-check-form').onsubmit=verifySnare;$('#snare-focus').onclick=()=>focusSnare();$('#snare-leg').onchange=()=>{map.snarePlan=null;map.invalidate();snareDefaults();};
   $('#snare-green-zone').textContent=catalog.interdiction?catalog.interdiction.greenZoneCheckRange/1000+' km':'unavailable';
   $('#route-summary').before(snareButton());
-  $('#snare-form').addEventListener('input',()=>{map.snarePlan=null;snareReferences=[];$('#snare-results').hidden=true;map.invalidate();});
+  $('#snare-save').onclick=saveInterception;
+  const library=el('details'),summary=el('summary','Saved interceptions '),count=el('span','0'),saved=el('div');count.id='saved-interception-count';saved.id='saved-interceptions';summary.append(count);library.append(summary,saved);$('#saved-routes').parentElement.after(library);
+  $('#snare-add-origin').onclick=()=>{pickerTarget='snare-extra-origin';$('#location-picker-title').textContent='Add target origin';$('#location-query').value='';$('#location-system').replaceChildren(option('','All systems'),...map.systems.map(s=>option(s.id,s.name)));$('#location-system').value=bodies.find(b=>b.id===activeRoute.destination)?.system||'';renderLocationPicker();$('#location-picker').showModal();};
+  $('#snare-moons').onclick=()=>{const primary=bodies.find(b=>b.id===activeRoute.origin);for(const body of bodies.filter(b=>b.parent===primary.id&&['moon','planet'].includes(b.kind)))if(snareOrigins.length<5&&!snareOrigins.includes(body.id))snareOrigins.push(body.id);invalidateSnare();renderSnareOrigins();};
+  $('#snare-placement').oninput=()=>$('#snare-placement-value').textContent=$('#snare-placement').value+'% toward furthest setup · release to recalculate';$('#snare-placement').onchange=calculateSnare;
+  for(const id of ['start-spread','end-spread','margin','min-travel','end-buffer']){const input=$('#snare-'+id),metres=input.value.trim()?Number(input.value)*1000:null;makeDistanceField(input,metres,metres===null?'km':distanceUnit(metres));}
+  $('#snare-form').addEventListener('input',e=>{if(e.target.id.endsWith('-unit')||e.target.id==='snare-placement')return;invalidateSnare();});
 }
 function updateLocationPickers(){
   for(const id of ['origin','destination','report-location']){
@@ -723,6 +801,7 @@ function renderLocationPicker(){
 }
 function pickLocation(id){
   const target=pickerTarget;if(!target)return;
+  if(target==='snare-extra-origin'){$('#location-picker').close();pickerTarget=null;addSnareOrigin(id);$('#snare-add-origin').focus();return;}
   $('#'+target).value=id;
   if(id!=='@route')recentLocations=[id,...recentLocations.filter(x=>x!==id)].slice(0,8);
   $('#location-picker').close();pickerTarget=null;
@@ -730,11 +809,13 @@ function pickLocation(id){
   updateLocationPickers();$('#pick-'+target).focus();
 }
 function setupCockpit(){
+  const browse=el('button','Browse all shards');browse.id='browse-all-shards';browse.type='button';browse.onclick=()=>{currentShard='';$('#shard-region').value='';$('#shard').value='';$('#map-shard').textContent='ALL SHARDS';map.home();showSystem(map.system);panel('map-area');toast('Showing all shards · '+map.system.toUpperCase());};$('#shard-form').after(browse);
   const searchLabel=document.querySelector('label[for="search"]');$('#sidebar .section-head').after(searchLabel,$('#search'),$('#results'));
   const controls=$('.map-controls'),pan=el('button','Rotate');pan.id='drag-mode';pan.type='button';pan.setAttribute('aria-label','Map drag mode: rotate. Switch to pan');pan.setAttribute('aria-pressed','false');
   pan.onclick=()=>{map.dragMode=map.dragMode==='pan'?'rotate':'pan';const p=map.dragMode==='pan';pan.textContent=p?'Pan':'Rotate';pan.setAttribute('aria-pressed',String(p));pan.setAttribute('aria-label','Map drag mode: '+(p?'pan. Switch to rotate':'rotate. Switch to pan'));};
   const tools=el('details',undefined,'map-tools');tools.id='map-tools';const summary=el('summary','Tools'),tray=el('div',undefined,'map-tools-tray');
   for(const id of ['universe','home','tilt','legend-toggle'])tray.append($('#'+id));tools.append(summary,tray);controls.replaceChildren(tools,$('#back-view'),pan,$('#zoom-out'),$('#zoom-in'));
+  const all=el('button','All shards');all.type='button';all.onclick=()=>browse.click();tray.append(all);
   tray.addEventListener('click',e=>{if(e.target.closest('button')){tools.open=false;map.invalidate();}});
   const picker=el('dialog');picker.id='location-picker';picker.setAttribute('aria-labelledby','location-picker-title');
   const heading=el('div',undefined,'dialog-heading'),title=el('h2','Choose a location');title.id='location-picker-title';const close=el('button','×');close.type='button';close.setAttribute('aria-label','Close location picker');close.onclick=()=>picker.close();heading.append(title,close);
@@ -792,7 +873,7 @@ async function start() {
     $('#zoom-out').onclick = () => map.zoom(1 / 1.6);
     $('#shard-region').value = currentShard ? currentShard.split('-')[0] : '';
     $('#shard').value = currentShard ? currentShard.split('-')[1] : '';
-    $('#map-shard').textContent = currentShard || 'NO SHARD';
+    $('#map-shard').textContent = currentShard || 'ALL SHARDS';
     search();
     await refreshMe();
     await loadReports();
@@ -868,6 +949,7 @@ async function jumpToSystem(id) {
   if(matchMedia('(prefers-reduced-motion: reduce)').matches){map.setSystem(id);return;}
   jumping=true;
   const source=map.system, overlay=el('div',undefined,'wormhole'),tunnel=el('div',undefined,'wormhole-tunnel');
+  overlay.style.setProperty('--jump-glow',source==='pyro'?'255,190,128':source==='nyx'?'92,235,211':'137,215,247');
   overlay.setAttribute('aria-hidden','true');overlay.append(tunnel);$('#map-area').append(overlay);
   const animation=overlay.animate([{opacity:0},{opacity:1,offset:.25},{opacity:1,offset:.65},{opacity:0}],{duration:760,easing:'ease-in-out'});
   const travel=setTimeout(()=>{if(map.system===source)map.setSystem(id);},380);
@@ -920,7 +1002,7 @@ async function updatePresence(){
   const system=map.system,shard=currentShard,request=++presenceRequest;
   const viewers=n=>n+' connected viewer'+(n===1?'':'s');
   let label=$('#viewer-count');if(!label){label=el('small',undefined,'hint');label.id='viewer-count';$('#map-subtitle').after(label);}
-  try{const counts=await api('presence',{system,shard,includeShards:system==='universe'});if(request!==presenceRequest||system!==map.system||shard!==currentShard)return;label.textContent=system==='universe'?viewers(counts.total)+' · all shards':shard?viewers(counts.count)+' · '+shard+' / '+system:'Choose a shard to see its viewer count';if(system==='universe')renderActiveShards(counts);}
+  try{const counts=await api('presence',{system,shard,includeShards:system==='universe'});if(request!==presenceRequest||system!==map.system||shard!==currentShard)return;label.textContent=system==='universe'?viewers(counts.total)+' · all shards':shard?viewers(counts.count)+' · '+shard+' / '+system:'All shards · '+viewers(counts.total)+' across the universe';if(system==='universe')renderActiveShards(counts);}
   catch{if(request!==presenceRequest||system!==map.system||shard!==currentShard)return;label.textContent='Viewer count unavailable';if(system==='universe')renderActiveShards(null,'error');}
 }
 function renderActiveShards(data,state='ready'){
